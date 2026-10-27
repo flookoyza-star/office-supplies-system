@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบรับ-จ่าย อุปกรณ์สำนักงานแบบครบวงจร (Office Supplies Inventory System)</title>
+  
+  <!-- Google Fonts: Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- SheetJS for Excel (.xlsx) export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- SweetAlert2 for modern dialogues -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- Top App Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <i class="fa-solid fa-boxes-stacked text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold text-slate-900 leading-tight">ระบบรับ-จ่ายและบริหารสต็อกอุปกรณ์สำนักงาน</h1>
+              <span id="headerOrgBadge" class="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                สยาม ซินเนอร์จี้
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">Office Supplies Requisition & Inventory WebApp</p>
+          </div>
+        </div>
+
+        <!-- Quick Action Buttons -->
+        <div class="flex items-center gap-2">
+          <button onclick="openRequisitionModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-file-signature"></i>
+            <span class="hidden sm:inline">ขอเบิกพัสดุ</span>
+          </button>
+          <button onclick="openStockInModal()" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-dolly"></i>
+            <span class="hidden sm:inline">รับเข้าสต็อก</span>
+          </button>
+          <button onclick="openItemModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-plus"></i>
+            <span class="hidden md:inline">เพิ่มวัสดุ</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex space-x-1 sm:space-x-4 border-t border-slate-100 overflow-x-auto py-1 scrollbar-none" id="mainTabNav">
+        <button onclick="switchTab('dashboard')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-blue-600 bg-blue-50/70 border-b-2 border-blue-600 flex items-center gap-2 whitespace-nowrap" data-tab="dashboard">
+          <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดสรุป
+        </button>
+        <button onclick="switchTab('inventory')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap" data-tab="inventory">
+          <i class="fa-solid fa-warehouse"></i> คลังอุปกรณ์/สต็อก
+          <span id="lowStockNavBadge" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-bold">0</span>
+        </button>
+        <button onclick="switchTab('requisitions')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap" data-tab="requisitions">
+          <i class="fa-solid fa-file-invoice"></i> ใบเบิกพัสดุ
+          <span id="pendingReqNavBadge" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-bold">0</span>
+        </button>
+        <button onclick="switchTab('stockins')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap" data-tab="stockins">
+          <i class="fa-solid fa-truck-ramp-box"></i> ประวัติรับเข้า
+        </button>
+        <button onclick="switchTab('reports')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap" data-tab="reports">
+          <i class="fa-solid fa-chart-line"></i> ออกรายงานละเอียด
+        </button>
+        <button onclick="switchTab('settings')" class="tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap" data-tab="settings">
+          <i class="fa-solid fa-sliders"></i> ตั้งค่า & จัดการหมวดหมู่
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: DASHBOARD -->
+    <!-- ========================================================================= -->
+    <div id="tab-dashboard" class="tab-content space-y-6">
+      <!-- Low Stock Warning Alert Banner -->
+      <div id="dashboardAlertBanner" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl shadow-xs">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-triangle-exclamation text-amber-600 text-xl"></i>
+            <div>
+              <p class="font-semibold text-amber-900 text-sm">การแจ้งเตือนวัสดุใกล้หมดสต็อก!</p>
+              <p class="text-xs text-amber-700" id="dashboardAlertText">มีรายการอุปกรณ์ที่จำนวนคงเหลือต่ำกว่าจุดสั่งซื้อขั้นต่ำ</p>
+            </div>
+          </div>
+          <button onclick="switchTab('inventory'); filterByLowStock();" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition">
+            ดูรายการ <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Stat Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">รายการวัสดุทั้งหมด</p>
+            <h3 class="text-2xl font-bold text-slate-800 mt-1" id="dashTotalItems">0</h3>
+            <span class="text-xs text-slate-500 mt-1 inline-block">พร้อมใช้งานในระบบ</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-boxes-stacked"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">ของใกล้หมด / หมดสต็อก</p>
+            <h3 class="text-2xl font-bold text-amber-600 mt-1" id="dashLowStockCount">0</h3>
+            <span class="text-xs text-slate-500 mt-1 inline-block" id="dashOutOfStockSub">หมดสต็อก 0 รายการ</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-bell"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">ใบเบิกรออนุมัติ/จ่าย</p>
+            <h3 class="text-2xl font-bold text-rose-600 mt-1" id="dashPendingReqs">0</h3>
+            <span class="text-xs text-slate-500 mt-1 inline-block">รอเจ้าหน้าที่จ่ายของ</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-clock"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">มูลค่าพัสดุในคลังรวม</p>
+            <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="dashInventoryValue">฿0</h3>
+            <span class="text-xs text-slate-500 mt-1 inline-block">ตามราคาทุนต่อหน่วย</span>
+          </div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+            <i class="fa-solid fa-sack-dollar"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Requisition Cost by Department Chart -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="flex justify-between items-center mb-4">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-chart-column text-blue-600"></i> ยอดมูลค่าการเบิกอุปกรณ์แยกตามแผนก
+            </h4>
+            <span class="text-xs text-slate-500">สะสมทั้งหมด</span>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="deptUsageChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Inventory Stock Value by Category Chart -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div class="flex justify-between items-center mb-4">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-indigo-600"></i> สัดส่วนมูลค่าสต็อกตามหมวดหมู่วัสดุ
+            </h4>
+            <span class="text-xs text-slate-500">มูลค่ารวม (บาท)</span>
+          </div>
+          <div class="h-64 relative flex items-center justify-center">
+            <canvas id="catStockChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Requisitions & Low Stock Quick Views -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Low Stock Items Table -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> อุปกรณ์ที่ต้องสั่งซื้อเพิ่ม (ใกล้หมด)
+            </h4>
+            <button onclick="switchTab('inventory'); filterByLowStock();" class="text-xs text-blue-600 hover:underline">
+              ดูทั้งหมด
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 border-b border-slate-100 font-medium">
+                <tr>
+                  <th class="p-3">รหัส/ชื่ออุปกรณ์</th>
+                  <th class="p-3 text-center">คงเหลือ</th>
+                  <th class="p-3 text-center">จุดสั่งซื้อ</th>
+                  <th class="p-3 text-right">การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="dashLowStockTable" class="divide-y divide-slate-100">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent Requisitions -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> การเบิกพัสดุล่าสุด
+            </h4>
+            <button onclick="switchTab('requisitions')" class="text-xs text-blue-600 hover:underline">
+              ดูทั้งหมด
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 border-b border-slate-100 font-medium">
+                <tr>
+                  <th class="p-3">เลขที่/วันที่</th>
+                  <th class="p-3">ผู้เบิก (แผนก)</th>
+                  <th class="p-3 text-center">สถานะ</th>
+                  <th class="p-3 text-right">ดำเนินการ</th>
+                </tr>
+              </thead>
+              <tbody id="dashRecentReqsTable" class="divide-y divide-slate-100">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: INVENTORY / จัดการคลังอุปกรณ์ -->
+    <!-- ========================================================================= -->
+    <div id="tab-inventory" class="tab-content hidden space-y-4">
+      <!-- Search & Filters Toolbar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
+        <div class="flex flex-1 flex-col sm:flex-row gap-2">
+          <!-- Search box -->
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="inventorySearchInput" onkeyup="filterInventoryTable()" placeholder="ค้นหารหัส, ชื่ออุปกรณ์, ที่เก็บ เช่น Double A, หมึก, ลิ้นชัก B..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <!-- Category select -->
+          <select id="inventoryCategoryFilter" onchange="filterInventoryTable()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">ทุกหมวดหมู่</option>
+          </select>
+          <!-- Stock status filter -->
+          <select id="inventoryStatusFilter" onchange="filterInventoryTable()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">สถานะสต็อกทั้งหมด</option>
+            <option value="normal">สต็อกปกติ (พร้อมเบิก)</option>
+            <option value="low">ใกล้หมดสต็อก (ต่ำกว่าจุดเตือน)</option>
+            <option value="out">หมดสต็อก (0)</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="exportInventoryToExcel()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-medium transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> Export Excel
+          </button>
+          <button onclick="openItemModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> เพิ่มอุปกรณ์
+          </button>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm" id="inventoryMainTable">
+            <thead class="bg-slate-100/70 text-slate-600 border-b border-slate-200 font-semibold text-xs">
+              <tr>
+                <th class="p-3 w-12 text-center">#</th>
+                <th class="p-3 w-28">รหัสพัสดุ</th>
+                <th class="p-3">ชื่ออุปกรณ์สำนักงาน</th>
+                <th class="p-3">หมวดหมู่</th>
+                <th class="p-3 text-center">คงเหลือ</th>
+                <th class="p-3 text-center">จุดสั่งซื้อ</th>
+                <th class="p-3 text-right">ราคา/หน่วย</th>
+                <th class="p-3 text-right">มูลค่ารวม</th>
+                <th class="p-3">ที่เก็บ</th>
+                <th class="p-3 text-center w-28">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+        <!-- Table footer stats -->
+        <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+          <span id="inventoryRowCountText">แสดง 0 รายการ</span>
+          <span id="inventoryTotalValuationText" class="font-semibold text-slate-700">มูลค่ารวม: ฿0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: REQUISITIONS / ใบเบิกพัสดุ -->
+    <!-- ========================================================================= -->
+    <div id="tab-requisitions" class="tab-content hidden space-y-4">
+      <!-- Toolbar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
+        <div class="flex flex-1 flex-col sm:flex-row gap-2">
+          <!-- Search input -->
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="reqSearchInput" onkeyup="filterRequisitionTable()" placeholder="ค้นหาเลขที่ใบเบิก, ผู้ขอเบิก, แผนก..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <!-- Status filter -->
+          <select id="reqStatusFilter" onchange="filterRequisitionTable()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">สถานะทั้งหมด</option>
+            <option value="pending">รออนุมัติ / รอเบิก (Pending)</option>
+            <option value="approved">อนุมัติ / จ่ายของแล้ว (Approved)</option>
+            <option value="rejected">ปฏิเสธคำขอ (Rejected)</option>
+          </select>
+          <!-- Department filter -->
+          <select id="reqDeptFilter" onchange="filterRequisitionTable()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">ทุกแผนก/ฝ่าย</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="exportRequisitionsToExcel()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-medium transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> Export Excel
+          </button>
+          <button onclick="openRequisitionModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-file-signature"></i> สร้างใบขอเบิกพัสดุ
+          </button>
+        </div>
+      </div>
+
+      <!-- Requisitions Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm" id="requisitionMainTable">
+            <thead class="bg-slate-100/70 text-slate-600 border-b border-slate-200 font-semibold text-xs">
+              <tr>
+                <th class="p-3">เลขที่ใบเบิก</th>
+                <th class="p-3">วันที่</th>
+                <th class="p-3">ผู้ขอเบิก</th>
+                <th class="p-3">แผนก/ฝ่าย</th>
+                <th class="p-3">วัตถุประสงค์</th>
+                <th class="p-3 text-center">จำนวนรายการ</th>
+                <th class="p-3 text-right">มูลค่าประเมิน</th>
+                <th class="p-3 text-center">สถานะ</th>
+                <th class="p-3 text-center w-36">ดำเนินการ</th>
+              </tr>
+            </thead>
+            <tbody id="requisitionTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: STOCK IN / ประวัติการรับเข้า -->
+    <!-- ========================================================================= -->
+    <div id="tab-stockins" class="tab-content hidden space-y-4">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
+        <div class="flex flex-1 flex-col sm:flex-row gap-2">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-sm"></i>
+            <input type="text" id="stockInSearchInput" onkeyup="filterStockInTable()" placeholder="ค้นหาเลขที่รับเข้า, เลขที่ PO, ผู้จัดจำหน่าย..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="exportStockInsToExcel()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-medium transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> Export Excel
+          </button>
+          <button onclick="openStockInModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-dolly"></i> บันทึกรับเข้าพัสดุ
+          </button>
+        </div>
+      </div>
+
+      <!-- Stock-in Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm" id="stockInMainTable">
+            <thead class="bg-slate-100/70 text-slate-600 border-b border-slate-200 font-semibold text-xs">
+              <tr>
+                <th class="p-3">เลขที่รับเข้า</th>
+                <th class="p-3">วันที่รับ</th>
+                <th class="p-3">เลขที่ใบสั่งซื้อ (PO)</th>
+                <th class="p-3">ผู้จำหน่าย / ร้านค้า</th>
+                <th class="p-3">ผู้ตรวจรับ</th>
+                <th class="p-3 text-center">จำนวนรายการ</th>
+                <th class="p-3 text-right">ยอดรวม (บาท)</th>
+                <th class="p-3 text-center w-28">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="stockInTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: COMPREHENSIVE REPORTS / ออกรีพอร์ตละเอียด -->
+    <!-- ========================================================================= -->
+    <div id="tab-reports" class="tab-content hidden space-y-6">
+      <!-- Report Filter Card -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i class="fa-solid fa-file-waveform text-blue-600"></i> ศูนย์ออกรายงานและวิเคราะห์พัสดุสำนักงาน
+            </h3>
+            <p class="text-xs text-slate-500">เลือกประเภทรายงานและกำหนดช่วงเวลาเพื่อดูข้อมูล สั่งพิมพ์ หรือ Export เป็น Excel</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="printReportA4()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-print"></i> พิมพ์รายงาน (A4/PDF)
+            </button>
+            <button onclick="exportCurrentReportToExcel()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-file-excel"></i> ดาวน์โหลด Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs sm:text-sm">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ประเภทรายงาน (Report Type)</label>
+            <select id="reportTypeSelect" onchange="generateReport()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="inventory">1. รายงานสรุปสต็อกคงเหลือและมูลค่ารวม</option>
+              <option value="requisition">2. รายงานการขอเบิก-จ่ายพัสดุ (ตามแผนก/บุคคล)</option>
+              <option value="stockin">3. รายงานการรับเข้าพัสดุ (ตามผู้จำหน่าย)</option>
+              <option value="dept_expense">4. รายงานสรุปค่าใช้จ่ายแยกตามแผนก</option>
+              <option value="lowstock">5. รายงานวัสดุที่ต้องจัดซื้อเพิ่ม (Reorder)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">หมวดหมู่วัสดุ</label>
+            <select id="reportCategoryFilter" onchange="generateReport()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="all">ทุกหมวดหมู่</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">แผนก/ฝ่ายที่ขอเบิก</label>
+            <select id="reportDeptFilter" onchange="generateReport()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="all">ทุกแผนก/ฝ่าย</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ช่วงวันที่</label>
+            <div class="grid grid-cols-2 gap-1">
+              <input type="date" id="reportStartDate" onchange="generateReport()" class="px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="date" id="reportEndDate" onchange="generateReport()" class="px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Printable Report Preview Container -->
+      <div id="printableReportSection" class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+        <!-- Report Header -->
+        <div class="border-b-2 border-slate-800 pb-4 flex justify-between items-start">
+          <div>
+            <h2 id="reportOrgNameTitle" class="text-xl font-bold text-slate-900">บริษัท สยาม ซินเนอร์จี้ จำกัด (สำนักงานใหญ่)</h2>
+            <h3 id="reportTitleHeader" class="text-base font-semibold text-blue-800 mt-1">รายงานสรุปสต็อกคงเหลือและมูลค่ารวม</h3>
+            <p id="reportSubHeader" class="text-xs text-slate-500 mt-0.5">ข้อมูล ณ วันที่: <span id="reportPrintDate">-</span></p>
+          </div>
+          <div class="text-right">
+            <span class="inline-block px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">รายงานทางการ</span>
+            <p class="text-[11px] text-slate-400 mt-1">ระบบบริหารพัสดุสำนักงาน</p>
+          </div>
+        </div>
+
+        <!-- Report KPI Snapshot -->
+        <div id="reportKpiRow" class="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+          <div>
+            <p class="text-xs text-slate-500 font-medium" id="reportKpi1Title">จำนวนรายการ</p>
+            <p class="text-xl font-bold text-slate-800 mt-0.5" id="reportKpi1Val">0</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium" id="reportKpi2Title">รวมจำนวนชิ้น/หน่วย</p>
+            <p class="text-xl font-bold text-blue-600 mt-0.5" id="reportKpi2Val">0</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium" id="reportKpi3Title">มูลค่ารวมทั้งสิ้น</p>
+            <p class="text-xl font-bold text-emerald-600 mt-0.5" id="reportKpi3Val">฿0.00</p>
+          </div>
+        </div>
+
+        <!-- Report Data Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm border-collapse" id="reportOutputTable">
+            <thead class="bg-slate-100 text-slate-700 border border-slate-200 font-semibold" id="reportOutputThead">
+              <!-- Dynamically set based on report type -->
+            </thead>
+            <tbody id="reportOutputTbody" class="divide-y divide-slate-100 border border-slate-200">
+              <!-- Dynamically populated -->
+            </tbody>
+            <tfoot id="reportOutputTfoot" class="font-bold bg-slate-50 border border-slate-200">
+              <!-- Dynamically populated -->
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- Report Signatures for Formal Paper Print -->
+        <div class="grid grid-cols-3 gap-6 pt-10 text-center text-xs text-slate-600 print-only">
+          <div>
+            <div class="h-12 border-b border-dashed border-slate-400"></div>
+            <p class="mt-2 font-medium">ผู้จัดทำรายงาน</p>
+            <p class="text-[10px] text-slate-400">วันที่ ...../...../.....</p>
+          </div>
+          <div>
+            <div class="h-12 border-b border-dashed border-slate-400"></div>
+            <p class="mt-2 font-medium">ผู้ตรวจทาน</p>
+            <p class="text-[10px] text-slate-400">วันที่ ...../...../.....</p>
+          </div>
+          <div>
+            <div class="h-12 border-b border-dashed border-slate-400"></div>
+            <p class="mt-2 font-medium">ผู้อนุมัติ / ผู้จัดการฝ่าย</p>
+            <p class="text-[10px] text-slate-400">วันที่ ...../...../.....</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 6: SETTINGS & MASTER DATA / ตั้งค่าระบบ -->
+    <!-- ========================================================================= -->
+    <div id="tab-settings" class="tab-content hidden space-y-6">
+      <!-- Organization Profile Settings -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+        <h3 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-building text-blue-600"></i> ข้อมูลองค์กรและสำนักงาน (สำหรับหัวบิลและใบเบิก)
+        </h3>
+        <form id="settingsForm" onsubmit="saveOrgSettings(event)" class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อบริษัท / หน่วยงาน / สำนักงาน</label>
+              <input type="text" id="setOrgName" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">ผู้จัดการ / หัวหน้างานธุรการ</label>
+              <input type="text" id="setManagerName" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">ที่อยู่สำนักงาน</label>
+              <input type="text" id="setOrgAddress" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์ติดต่อ</label>
+              <input type="text" id="setOrgPhone" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">จุดเตือนสต็อกขั้นต่ำเริ่มต้น (ชิ้น)</label>
+              <input type="number" id="setLowStockDefault" min="1" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium shadow-sm transition">
+              <i class="fa-solid fa-floppy-disk mr-1.5"></i> บันทึกข้อมูลองค์กร
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Categories & Departments Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Categories Management -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i class="fa-solid fa-tags text-indigo-600"></i> หมวดหมู่อุปกรณ์สำนักงาน
+            </h3>
+            <button onclick="promptAddCategory()" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition inline-flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> เพิ่มหมวดหมู่
+            </button>
+          </div>
+          <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto pr-1" id="settingsCategoryList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Departments Management -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+              <i class="fa-solid fa-sitemap text-emerald-600"></i> แผนกและฝ่ายผู้ขอเบิก
+            </h3>
+            <button onclick="promptAddDepartment()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition inline-flex items-center gap-1">
+              <i class="fa-solid fa-plus"></i> เพิ่มแผนก
+            </button>
+          </div>
+          <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto pr-1" id="settingsDeptList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Backup & Restore -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+        <h3 class="font-bold text-slate-900 text-base mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-database text-purple-600"></i> สำรองและกู้คืนฐานข้อมูล (Backup & Restore)
+        </h3>
+        <p class="text-xs text-slate-500 mb-4">คุณสามารถสำรองข้อมูลพัสดุ ประวัติการรับเข้า และใบเบิกทั้งหมดเป็นไฟล์ JSON เพื่อเก็บบน Google Drive หรือย้ายไปเครื่องอื่นได้ตลอดเวลา</p>
+        <div class="flex flex-wrap gap-3">
+          <a href="/api/backup/export" download class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center gap-2">
+            <i class="fa-solid fa-download"></i> สำรองข้อมูล (Download Backup JSON)
+          </a>
+          <button onclick="document.getElementById('backupFileInput').click()" class="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center gap-2">
+            <i class="fa-solid fa-upload"></i> กู้คืนข้อมูลจากไฟล์สำรอง (Restore JSON)
+          </button>
+          <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleRestoreUpload(event)">
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODALS -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. Modal: เพิ่ม/แก้ไข อุปกรณ์ (Item Modal) -->
+  <div id="itemModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 id="itemModalTitle" class="text-lg font-bold text-slate-900">เพิ่มรายการอุปกรณ์ใหม่</h3>
+        <button onclick="closeModal('itemModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="itemForm" onsubmit="handleItemFormSubmit(event)" class="space-y-4 text-xs sm:text-sm">
+        <input type="hidden" id="itemId">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">รหัสพัสดุ (Item Code) *</label>
+            <input type="text" id="itemCode" required placeholder="เช่น OFF-PAP-01" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">หมวดหมู่วัสดุ *</label>
+            <select id="itemCategoryId" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">ชื่ออุปกรณ์สำนักงาน / สเปค *</label>
+          <input type="text" id="itemName" required placeholder="เช่น กระดาษ Double A A4 80 แกรม, หมึก Canon GI-790" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">หน่วยนับ *</label>
+            <input type="text" id="itemUnit" required placeholder="รีม, ด้าม, ตลับ" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">จำนวนเริ่มต้น</label>
+            <input type="number" id="itemCurrentStock" min="0" value="0" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">จุดเตือนสั่งซื้อ (Min)</label>
+            <input type="number" id="itemMinStock" min="1" value="5" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ราคาต่อหน่วย (฿)</label>
+            <input type="number" step="0.01" id="itemUnitPrice" min="0" value="0.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">สถานที่จัดเก็บ / ตำแหน่งตู้ / ชั้นวาง</label>
+          <input type="text" id="itemLocation" placeholder="เช่น ชั้นวาง A-1, ลิ้นชัก B-2, ตู้เซฟ C" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">รายละเอียดเพิ่มเติม / สเปครองรับ</label>
+          <textarea id="itemDescription" rows="2" placeholder="ระบุยี่ห้อ ขนาด บรรจุภัณฑ์ หรือรุ่นเครื่องพิมพ์ที่รองรับ..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('itemModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm transition">
+            บันทึกข้อมูล
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Modal: ขอเบิกพัสดุ (Requisition Modal) -->
+  <div id="requisitionModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">สร้างใบขอเบิกอุปกรณ์สำนักงาน</h3>
+          <p class="text-xs text-slate-500">สามารถเลือกรายการที่ต้องการเบิกได้หลายรายการพร้อมกันใน 1 ใบเบิก</p>
+        </div>
+        <button onclick="closeModal('requisitionModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="requisitionForm" onsubmit="handleRequisitionSubmit(event)" class="space-y-4 text-xs sm:text-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">วันที่ขอเบิก *</label>
+            <input type="date" id="reqDate" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ชื่อผู้ขอเบิก *</label>
+            <input type="text" id="reqRequisitioner" required placeholder="ชื่อ-นามสกุล ผู้ขอเบิก" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">แผนก / ฝ่าย *</label>
+            <select id="reqDepartmentId" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">วัตถุประสงค์ในการขอเบิก *</label>
+          <input type="text" id="reqPurpose" required placeholder="เช่น ใช้ในงานประชุมผู้บริหาร, งานประจำวัน, เตรียมเอกสารอบรม..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <!-- Items Rows -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block font-semibold text-slate-800">รายการอุปกรณ์ที่ต้องการเบิก *</label>
+            <button type="button" onclick="addRequisitionRow()" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition">
+              <i class="fa-solid fa-plus"></i> เพิ่มแถวรายการ
+            </button>
+          </div>
+
+          <div id="requisitionRowsContainer" class="space-y-2">
+            <!-- Dynamic rows will be inserted here -->
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center text-xs sm:text-sm font-semibold">
+            <span>มูลค่าประเมินรวมทั้งสิ้น:</span>
+            <span class="text-blue-700 text-base" id="reqFormTotalAmount">฿0.00</span>
+          </div>
+        </div>
+
+        <!-- Options for immediate dispatch -->
+        <div class="bg-blue-50/60 p-3 rounded-xl border border-blue-100 flex items-center justify-between">
+          <label class="flex items-center gap-2 cursor-pointer text-xs sm:text-sm">
+            <input type="checkbox" id="reqAutoApprove" class="w-4 h-4 text-blue-600 rounded">
+            <span class="text-slate-700">อนุมัติและตัดจ่ายสต็อกทันที (กรณีเจ้าหน้าที่เป็นผู้จ่ายของเอง)</span>
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('requisitionModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium shadow-sm transition">
+            <i class="fa-solid fa-paper-plane mr-1.5"></i> บันทึกใบขอเบิก
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Modal: บันทึกรับเข้าสต็อก (Stock-in Modal) -->
+  <div id="stockInModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">บันทึกรับเข้าพัสดุและอุปกรณ์สำนักงาน</h3>
+          <p class="text-xs text-slate-500">จำนวนสต็อกจะเพิ่มขึ้นอัตโนมัติตามรายการที่ระบุ</p>
+        </div>
+        <button onclick="closeModal('stockInModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-4 text-xs sm:text-sm">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">วันที่รับเข้า *</label>
+            <input type="date" id="inDate" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">เลขที่ใบสั่งซื้อ (PO / INV)</label>
+            <input type="text" id="inPoNumber" placeholder="เช่น PO-6810-099" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ผู้จัดจำหน่าย / ร้านค้า *</label>
+            <input type="text" id="inSupplier" required placeholder="เช่น ออฟฟิศเมท, บจก.บีทูเอส" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">ผู้ตรวจรับพัสดุ *</label>
+            <input type="text" id="inReceiverName" required placeholder="ชื่อผู้รับพัสดุเข้าคลัง" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-700 mb-1">หมายเหตุเพิ่มเติม</label>
+            <input type="text" id="inNotes" placeholder="เช่น สั่งซื้อประจำเดือน, อุปกรณ์สำรอง..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <!-- Stock-in Items Rows -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <label class="block font-semibold text-slate-800">รายการอุปกรณ์ที่รับเข้า *</label>
+            <button type="button" onclick="addStockInRow()" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition">
+              <i class="fa-solid fa-plus"></i> เพิ่มแถวรายการ
+            </button>
+          </div>
+
+          <div id="stockInRowsContainer" class="space-y-2">
+            <!-- Dynamic rows will be inserted here -->
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center text-xs sm:text-sm font-semibold">
+            <span>ยอดเงินรวมทั้งสิ้น:</span>
+            <span class="text-blue-700 text-base" id="stockInFormTotalAmount">฿0.00</span>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal('stockInModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium transition">
+            ยกเลิก
+          </button>
+          <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium shadow-sm transition">
+            <i class="fa-solid fa-check mr-1.5"></i> บันทึกรับเข้าสต็อก
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Modal: ดูรายละเอียดและจัดการใบเบิก (Requisition Detail & Action Modal) -->
+  <div id="requisitionDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900" id="detailReqId">ใบขอเบิกเลขที่ REQ-XXXX</h3>
+          <p class="text-xs text-slate-500" id="detailReqMeta">-</p>
+        </div>
+        <button onclick="closeModal('requisitionDetailModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm">
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-2 gap-2">
+          <div><span class="text-slate-500">ผู้ขอเบิก:</span> <strong id="detailReqUser" class="text-slate-800"></strong></div>
+          <div><span class="text-slate-500">แผนก:</span> <strong id="detailReqDept" class="text-slate-800"></strong></div>
+          <div class="col-span-2"><span class="text-slate-500">วัตถุประสงค์:</span> <strong id="detailReqPurpose" class="text-slate-800"></strong></div>
+          <div><span class="text-slate-500">สถานะ:</span> <span id="detailReqStatusBadge"></span></div>
+          <div><span class="text-slate-500">มูลค่ารวม:</span> <strong id="detailReqTotal" class="text-blue-700"></strong></div>
+        </div>
+
+        <div>
+          <h5 class="font-semibold text-slate-800 mb-2">รายการที่ขอเบิก:</h5>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-600 font-medium">
+                <tr>
+                  <th class="p-2.5">รายการอุปกรณ์</th>
+                  <th class="p-2.5 text-center">จำนวนที่ขอ</th>
+                  <th class="p-2.5 text-center">หน่วย</th>
+                  <th class="p-2.5 text-right">ราคา/หน่วย</th>
+                  <th class="p-2.5 text-right">รวมเป็นเงิน</th>
+                </tr>
+              </thead>
+              <tbody id="detailReqItemsTbody" class="divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="detailActionSection" class="pt-3 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2">
+          <button id="detailPrintBtn" onclick="openPrintSlipWindow()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium inline-flex items-center gap-1.5 shadow-sm transition">
+            <i class="fa-solid fa-print"></i> พิมพ์ใบเบิก (Print Slip)
+          </button>
+          <div class="flex gap-2" id="detailStatusActions">
+            <!-- Buttons for Approve/Dispatch or Reject loaded dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Modal: ดูรายละเอียดใบรับเข้า (Stock-in Detail Modal) -->
+  <div id="stockInDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900" id="detailInId">ใบรับเข้าเลขที่ IN-XXXX</h3>
+          <p class="text-xs text-slate-500" id="detailInMeta">-</p>
+        </div>
+        <button onclick="closeModal('stockInDetailModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm">
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 grid grid-cols-2 gap-2">
+          <div><span class="text-slate-500">ผู้จำหน่าย:</span> <strong id="detailInSupplier" class="text-slate-800"></strong></div>
+          <div><span class="text-slate-500">เลขที่ PO:</span> <strong id="detailInPo" class="text-slate-800"></strong></div>
+          <div><span class="text-slate-500">ผู้ตรวจรับ:</span> <strong id="detailInReceiver" class="text-slate-800"></strong></div>
+          <div><span class="text-slate-500">ยอดรวมทั้งสิ้น:</span> <strong id="detailInTotal" class="text-blue-700"></strong></div>
+        </div>
+
+        <div>
+          <h5 class="font-semibold text-slate-800 mb-2">รายการอุปกรณ์ที่รับเข้า:</h5>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100 text-slate-600 font-medium">
+                <tr>
+                  <th class="p-2.5">รายการอุปกรณ์</th>
+                  <th class="p-2.5 text-center">จำนวนรับ</th>
+                  <th class="p-2.5 text-center">หน่วย</th>
+                  <th class="p-2.5 text-right">ราคาต่อหน่วย</th>
+                  <th class="p-2.5 text-right">ยอดรวม</th>
+                </tr>
+              </thead>
+              <tbody id="detailInItemsTbody" class="divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Main Logic Script -->
+  <script src="js/app.js"></script>
+</body>
+</html>
+

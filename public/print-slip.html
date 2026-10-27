@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ใบเบิกอุปกรณ์สำนักงาน (Requisition Slip)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+    }
+    @media print {
+      body {
+        background-color: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-page {
+        box-shadow: none !important;
+        border: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+
+  <!-- Action Bar (Hidden in Print) -->
+  <div class="max-w-4xl mx-auto mb-6 flex justify-between items-center no-print bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <div class="flex items-center gap-2">
+      <a href="index.html" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition inline-flex items-center gap-2">
+        <i class="fa-solid fa-arrow-left"></i> กลับหน้าระบบ
+      </a>
+      <span class="text-xs text-slate-500">กดปุ่มพิมพ์เพื่อสั่งพิมพ์ใบเบิกขนาดมาตรฐาน A4</span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="window.print()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm shadow transition inline-flex items-center gap-2">
+        <i class="fa-solid fa-print"></i> พิมพ์ใบเบิกพัสดุ (Print)
+      </button>
+    </div>
+  </div>
+
+  <!-- Requisition Voucher A4 Container -->
+  <div id="voucherContainer" class="print-page max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-md border border-slate-200">
+    <!-- Header -->
+    <div class="border-b-2 border-slate-800 pb-6 mb-6">
+      <div class="flex justify-between items-start">
+        <div>
+          <h1 id="orgName" class="text-2xl font-bold text-slate-900">บริษัท สยาม ซินเนอร์จี้ จำกัด (สำนักงานใหญ่)</h1>
+          <p id="orgAddress" class="text-xs text-slate-600 mt-1">888 อาคารเอ็มไพร์สเตท ชั้น 18 ถนนสาทรใต้ ยานนาวา สาทร กรุงเทพฯ 10120</p>
+          <p id="orgPhone" class="text-xs text-slate-600">โทรศัพท์: 02-888-9999 ต่อ 101-103</p>
+        </div>
+        <div class="text-right">
+          <div class="inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded font-bold text-slate-800 text-base mb-1">
+            ใบเบิกอุปกรณ์และพัสดุสำนักงาน
+          </div>
+          <p class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Office Supplies Requisition Slip</p>
+          <p class="text-sm font-bold text-blue-700 mt-2">เลขที่: <span id="voucherNo">REQ-XXXX</span></p>
+          <p class="text-xs text-slate-600">วันที่: <span id="voucherDate">-</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Requisition Info Details -->
+    <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 text-sm">
+      <div>
+        <p class="text-slate-600">ผู้ขอเบิก: <span id="requisitionerName" class="font-semibold text-slate-900">-</span></p>
+        <p class="text-slate-600 mt-1">ฝ่าย / แผนก: <span id="departmentName" class="font-semibold text-slate-900">-</span></p>
+      </div>
+      <div>
+        <p class="text-slate-600">วัตถุประสงค์: <span id="requisitionPurpose" class="font-semibold text-slate-900">-</span></p>
+        <p class="text-slate-600 mt-1">สถานะใบเบิก: <span id="statusBadge" class="font-semibold px-2 py-0.5 rounded text-xs">-</span></p>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="overflow-x-auto mb-6">
+      <table class="w-full text-left text-sm border-collapse border border-slate-300">
+        <thead>
+          <tr class="bg-slate-100 text-slate-700 text-xs uppercase font-semibold">
+            <th class="border border-slate-300 p-2 text-center w-12">ลำดับ</th>
+            <th class="border border-slate-300 p-2 text-center w-24">รหัสพัสดุ</th>
+            <th class="border border-slate-300 p-2">รายการอุปกรณ์ / พัสดุ</th>
+            <th class="border border-slate-300 p-2 text-center w-20">จำนวน</th>
+            <th class="border border-slate-300 p-2 text-center w-20">หน่วยนับ</th>
+            <th class="border border-slate-300 p-2 text-right w-24">ราคา/หน่วย</th>
+            <th class="border border-slate-300 p-2 text-right w-28">รวมเป็นเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody id="itemsTableBody">
+          <!-- Rows inserted dynamically -->
+        </tbody>
+        <tfoot>
+          <tr class="font-bold bg-slate-50">
+            <td colspan="5" class="border border-slate-300 p-2 text-right">รวมมูลค่าโดยประมาณทั้งสิ้น:</td>
+            <td colspan="2" class="border border-slate-300 p-2 text-right text-base text-blue-700 font-bold" id="totalEstimatedCost">฿0.00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Remarks / Notes -->
+    <div class="mb-10 text-xs text-slate-500">
+      <p>* หมายเหตุ: โปรดตรวจนับจำนวนและสภาพของอุปกรณ์ให้ถูกต้องครบถ้วนขณะรับมอบพัสดุ</p>
+    </div>
+
+    <!-- Signatures section -->
+    <div class="grid grid-cols-4 gap-4 text-center text-xs mt-8 pt-4 border-t border-slate-300">
+      <div>
+        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+          <span id="sigRequisitioner" class="font-medium text-slate-800"></span>
+        </div>
+        <p class="font-semibold text-slate-700 mt-2">ผู้ขอเบิก</p>
+        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+      </div>
+
+      <div>
+        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+          <span id="sigApprover" class="font-medium text-slate-800"></span>
+        </div>
+        <p class="font-semibold text-slate-700 mt-2">หัวหน้างาน / ผู้อนุมัติ</p>
+        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+      </div>
+
+      <div>
+        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+          <span id="sigDispatcher" class="font-medium text-slate-800"></span>
+        </div>
+        <p class="font-semibold text-slate-700 mt-2">ผู้จ่ายพัสดุ</p>
+        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+      </div>
+
+      <div>
+        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+          <span id="sigReceiver" class="font-medium text-slate-800"></span>
+        </div>
+        <p class="font-semibold text-slate-700 mt-2">ผู้รับพัสดุ</p>
+        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadSlip() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      if (!id) {
+        alert('กรุณาระบุเลขที่ใบเบิก (?id=REQ-...)');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/requisitions/${id}`);
+        const result = await res.json();
+        if (!result.success || !result.data) {
+          alert('ไม่พบข้อมูลใบเบิกนี้');
+          return;
+        }
+
+        const req = result.data;
+        const settings = result.settings || {};
+
+        if (settings.orgName) document.getElementById('orgName').textContent = settings.orgName;
+        if (settings.orgAddress) document.getElementById('orgAddress').textContent = settings.orgAddress;
+        if (settings.orgPhone) document.getElementById('orgPhone').textContent = 'โทรศัพท์: ' + settings.orgPhone;
+
+        document.getElementById('voucherNo').textContent = req.id;
+        document.getElementById('voucherDate').textContent = req.date || new Date().toISOString().split('T')[0];
+        document.getElementById('requisitionerName').textContent = req.requisitioner;
+        document.getElementById('departmentName').textContent = req.departmentName || '-';
+        document.getElementById('requisitionPurpose').textContent = req.purpose || '-';
+
+        const statusEl = document.getElementById('statusBadge');
+        if (req.status === 'approved') {
+          statusEl.textContent = 'อนุมัติ / จ่ายของแล้ว';
+          statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800';
+        } else if (req.status === 'rejected') {
+          statusEl.textContent = 'ปฏิเสธคำขอ';
+          statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-800';
+        } else {
+          statusEl.textContent = 'รออนุมัติ / รอเบิก';
+          statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800';
+        }
+
+        // Fill signature placeholders if available
+        document.getElementById('sigRequisitioner').textContent = req.requisitioner;
+        if (req.approverName) document.getElementById('sigApprover').textContent = req.approverName;
+        if (req.dispatchedBy) document.getElementById('sigDispatcher').textContent = req.dispatchedBy;
+        if (req.status === 'approved') document.getElementById('sigReceiver').textContent = req.requisitioner;
+
+        // Render table rows
+        const tbody = document.getElementById('itemsTableBody');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        (req.items || []).forEach((item, index) => {
+          const rowTotal = Number(item.totalPrice || (item.quantity * item.unitPrice) || 0);
+          total += rowTotal;
+          const tr = document.createElement('tr');
+          tr.className = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
+          tr.innerHTML = `
+            <td class="border border-slate-300 p-2 text-center text-slate-500">${index + 1}</td>
+            <td class="border border-slate-300 p-2 text-center font-mono text-xs text-slate-600">${item.itemId || '-'}</td>
+            <td class="border border-slate-300 p-2 font-medium text-slate-800">${item.name}</td>
+            <td class="border border-slate-300 p-2 text-center font-bold text-slate-800">${item.quantity}</td>
+            <td class="border border-slate-300 p-2 text-center text-slate-600">${item.unit || 'ชิ้น'}</td>
+            <td class="border border-slate-300 p-2 text-right text-slate-700">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td class="border border-slate-300 p-2 text-right font-semibold text-slate-900">฿${rowTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('totalEstimatedCost').textContent = '฿' + (req.totalEstimatedCost || total).toLocaleString('th-TH', { minimumFractionDigits: 2 });
+
+        // If 'autoprint=1' in query, automatically trigger print
+        if (urlParams.get('autoprint') === '1') {
+          setTimeout(() => { window.print(); }, 400);
+        }
+      } catch (e) {
+        console.error(e);
+        alert('เกิดข้อผิดพลาดในการโหลดใบเบิก');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadSlip);
+  </script>
+</body>
+</html>
+

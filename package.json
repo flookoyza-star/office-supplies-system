@@ -1,0 +1,27 @@
+{
+  "name": "office-supplies-inventory-system",
+  "version": "1.0.0",
+  "description": "ระบบรับ-จ่ายและบริหารสต็อกอุปกรณ์สำนักงานแบบครบวงจร (Office Supplies Inventory & Requisition WebApp)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "office-supplies",
+    "inventory",
+    "requisition",
+    "stock-management",
+    "warehouse",
+    "thai"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
+
