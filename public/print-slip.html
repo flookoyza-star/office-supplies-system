@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ใบเบิกอุปกรณ์สำนักงาน (Requisition Slip)</title>
+  <title>ใบเบิกอุปกรณ์และพัสดุสำนักงาน (Office Supplies Requisition Slip)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -41,11 +41,11 @@
       <a href="index.html" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition inline-flex items-center gap-2">
         <i class="fa-solid fa-arrow-left"></i> กลับหน้าระบบ
       </a>
-      <span class="text-xs text-slate-500">กดปุ่มพิมพ์เพื่อสั่งพิมพ์ใบเบิกขนาดมาตรฐาน A4</span>
+      <span class="text-xs text-slate-500">พิมพ์ใบเบิกนี้เพื่อนำไปให้หัวหน้าแผนกเซ็นอนุมัติก่อนนำมาเบิกของที่ห้องพัสดุ</span>
     </div>
     <div class="flex gap-2">
       <button onclick="window.print()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm shadow transition inline-flex items-center gap-2">
-        <i class="fa-solid fa-print"></i> พิมพ์ใบเบิกพัสดุ (Print)
+        <i class="fa-solid fa-print"></i> สั่งพิมพ์ใบเบิกพัสดุ (Print A4)
       </button>
     </div>
   </div>
@@ -53,7 +53,7 @@
   <!-- Requisition Voucher A4 Container -->
   <div id="voucherContainer" class="print-page max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-md border border-slate-200">
     <!-- Header -->
-    <div class="border-b-2 border-slate-800 pb-6 mb-6">
+    <div class="border-b-2 border-slate-800 pb-5 mb-5">
       <div class="flex justify-between items-start">
         <div>
           <h1 id="orgName" class="text-2xl font-bold text-slate-900">บริษัท สยาม ซินเนอร์จี้ จำกัด (สำนักงานใหญ่)</h1>
@@ -61,40 +61,45 @@
           <p id="orgPhone" class="text-xs text-slate-600">โทรศัพท์: 02-888-9999 ต่อ 101-103</p>
         </div>
         <div class="text-right">
-          <div class="inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded font-bold text-slate-800 text-base mb-1">
-            ใบเบิกอุปกรณ์และพัสดุสำนักงาน
+          <div class="inline-block px-3 py-1 bg-slate-100 border border-slate-400 rounded font-bold text-slate-900 text-base mb-1">
+            ใบขอเบิกอุปกรณ์และพัสดุสำนักงาน
           </div>
-          <p class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Office Supplies Requisition Slip</p>
-          <p class="text-sm font-bold text-blue-700 mt-2">เลขที่: <span id="voucherNo">REQ-XXXX</span></p>
-          <p class="text-xs text-slate-600">วันที่: <span id="voucherDate">-</span></p>
+          <p class="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Office Supplies Requisition Slip</p>
+          <p class="text-sm font-bold text-blue-700 mt-2">เลขที่ใบเบิก: <span id="voucherNo" class="font-mono">REQ-XXXX</span></p>
+          <p class="text-xs text-slate-600">วันที่ทำรายการ: <span id="voucherDate">-</span></p>
         </div>
       </div>
     </div>
 
     <!-- Requisition Info Details -->
-    <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 text-sm">
+    <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 mb-5 text-sm">
       <div>
         <p class="text-slate-600">ผู้ขอเบิก: <span id="requisitionerName" class="font-semibold text-slate-900">-</span></p>
         <p class="text-slate-600 mt-1">ฝ่าย / แผนก: <span id="departmentName" class="font-semibold text-slate-900">-</span></p>
       </div>
       <div>
-        <p class="text-slate-600">วัตถุประสงค์: <span id="requisitionPurpose" class="font-semibold text-slate-900">-</span></p>
-        <p class="text-slate-600 mt-1">สถานะใบเบิก: <span id="statusBadge" class="font-semibold px-2 py-0.5 rounded text-xs">-</span></p>
+        <p class="text-slate-600">วัตถุประสงค์ในการขอเบิก: <span id="requisitionPurpose" class="font-semibold text-slate-900">-</span></p>
+        <p class="text-slate-600 mt-1">สถานะในระบบ: <span id="statusBadge" class="font-semibold px-2 py-0.5 rounded text-xs">-</span></p>
       </div>
     </div>
 
+    <!-- Instructions banner -->
+    <div class="bg-amber-50/70 border-l-4 border-amber-400 p-2.5 mb-5 rounded-r-lg text-xs text-amber-900">
+      <strong>📌 ขั้นตอนปฏิบัติ:</strong> 1. ผู้ขอเบิกพิมพ์ใบนี้ ➔ 2. เสนอหัวหน้าแผนก/ผู้จัดการลงนามอนุมัติ ➔ 3. ถือใบเบิกมาติดต่อเจ้าหน้าที่ห้องพัสดุ ➔ 4. เจ้าหน้าที่ตรวจรับ จ่ายของ และเซ็นรับทราบในระบบและใบเบิก
+    </div>
+
     <!-- Items Table -->
-    <div class="overflow-x-auto mb-6">
+    <div class="overflow-x-auto mb-5">
       <table class="w-full text-left text-sm border-collapse border border-slate-300">
         <thead>
           <tr class="bg-slate-100 text-slate-700 text-xs uppercase font-semibold">
             <th class="border border-slate-300 p-2 text-center w-12">ลำดับ</th>
             <th class="border border-slate-300 p-2 text-center w-24">รหัสพัสดุ</th>
-            <th class="border border-slate-300 p-2">รายการอุปกรณ์ / พัสดุ</th>
-            <th class="border border-slate-300 p-2 text-center w-20">จำนวน</th>
+            <th class="border border-slate-300 p-2">รายการอุปกรณ์ / พัสดุสำนักงาน</th>
+            <th class="border border-slate-300 p-2 text-center w-24">จำนวนที่ขอเบิก</th>
             <th class="border border-slate-300 p-2 text-center w-20">หน่วยนับ</th>
             <th class="border border-slate-300 p-2 text-right w-24">ราคา/หน่วย</th>
-            <th class="border border-slate-300 p-2 text-right w-28">รวมเป็นเงิน (บาท)</th>
+            <th class="border border-slate-300 p-2 text-right w-28">รวมมูลค่า (บาท)</th>
           </tr>
         </thead>
         <tbody id="itemsTableBody">
@@ -102,7 +107,7 @@
         </tbody>
         <tfoot>
           <tr class="font-bold bg-slate-50">
-            <td colspan="5" class="border border-slate-300 p-2 text-right">รวมมูลค่าโดยประมาณทั้งสิ้น:</td>
+            <td colspan="5" class="border border-slate-300 p-2 text-right">รวมมูลค่าประมาณการทั้งสิ้น:</td>
             <td colspan="2" class="border border-slate-300 p-2 text-right text-base text-blue-700 font-bold" id="totalEstimatedCost">฿0.00</td>
           </tr>
         </tfoot>
@@ -110,42 +115,46 @@
     </div>
 
     <!-- Remarks / Notes -->
-    <div class="mb-10 text-xs text-slate-500">
+    <div class="mb-8 text-xs text-slate-500">
       <p>* หมายเหตุ: โปรดตรวจนับจำนวนและสภาพของอุปกรณ์ให้ถูกต้องครบถ้วนขณะรับมอบพัสดุ</p>
     </div>
 
-    <!-- Signatures section -->
-    <div class="grid grid-cols-4 gap-4 text-center text-xs mt-8 pt-4 border-t border-slate-300">
+    <!-- 4 Signatures section -->
+    <div class="grid grid-cols-4 gap-4 text-center text-xs mt-6 pt-4 border-t-2 border-slate-300">
       <div>
         <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
           <span id="sigRequisitioner" class="font-medium text-slate-800"></span>
         </div>
-        <p class="font-semibold text-slate-700 mt-2">ผู้ขอเบิก</p>
-        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+        <p class="font-bold text-slate-800 mt-2">ผู้ขอเบิกพัสดุ</p>
+        <p class="text-slate-500 text-[10px]">(เจ้าหน้าที่ประจำแผนก)</p>
+        <p class="text-slate-400 text-[10px] mt-1">วันที่ ......./......./.......</p>
       </div>
 
-      <div>
-        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+      <div class="bg-amber-50/50 p-1.5 rounded-lg border border-amber-200/60">
+        <div class="h-14 flex items-end justify-center border-b border-dashed border-amber-400 pb-1">
           <span id="sigApprover" class="font-medium text-slate-800"></span>
         </div>
-        <p class="font-semibold text-slate-700 mt-2">หัวหน้างาน / ผู้อนุมัติ</p>
-        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+        <p class="font-bold text-amber-900 mt-2">หัวหน้างาน / ผู้อนุมัติ</p>
+        <p class="text-amber-700 text-[10px]">*(ลงนามก่อนนำไปเบิก)*</p>
+        <p class="text-slate-400 text-[10px] mt-1">วันที่ ......./......./.......</p>
       </div>
 
-      <div>
-        <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
+      <div class="bg-blue-50/50 p-1.5 rounded-lg border border-blue-200/60">
+        <div class="h-14 flex items-end justify-center border-b border-dashed border-blue-400 pb-1">
           <span id="sigDispatcher" class="font-medium text-slate-800"></span>
         </div>
-        <p class="font-semibold text-slate-700 mt-2">ผู้จ่ายพัสดุ</p>
-        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+        <p class="font-bold text-blue-900 mt-2">ผู้จ่ายพัสดุ (คลัง)</p>
+        <p class="text-blue-700 text-[10px]">(เจ้าหน้าที่ห้องพัสดุ)</p>
+        <p class="text-slate-400 text-[10px] mt-1">วันที่ ......./......./.......</p>
       </div>
 
       <div>
         <div class="h-16 flex items-end justify-center border-b border-dashed border-slate-400 pb-1">
           <span id="sigReceiver" class="font-medium text-slate-800"></span>
         </div>
-        <p class="font-semibold text-slate-700 mt-2">ผู้รับพัสดุ</p>
-        <p class="text-slate-500 text-[10px]">วันที่ ......./......./.......</p>
+        <p class="font-bold text-slate-800 mt-2">ผู้รับมอบพัสดุ</p>
+        <p class="text-slate-500 text-[10px]">(ผู้รับของเมื่อจ่ายเสร็จ)</p>
+        <p class="text-slate-400 text-[10px] mt-1">วันที่ ......./......./.......</p>
       </div>
     </div>
   </div>
@@ -182,13 +191,13 @@
 
         const statusEl = document.getElementById('statusBadge');
         if (req.status === 'approved') {
-          statusEl.textContent = 'อนุมัติ / จ่ายของแล้ว';
+          statusEl.textContent = 'อนุมัติ & จ่ายของแล้ว (ตัดสต็อกแล้ว)';
           statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800';
         } else if (req.status === 'rejected') {
           statusEl.textContent = 'ปฏิเสธคำขอ';
           statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-800';
         } else {
-          statusEl.textContent = 'รออนุมัติ / รอเบิก';
+          statusEl.textContent = 'รอหัวหน้าแผนกเซ็นอนุมัติ / รอเบิก';
           statusEl.className = 'font-semibold px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800';
         }
 
@@ -212,7 +221,7 @@
             <td class="border border-slate-300 p-2 text-center text-slate-500">${index + 1}</td>
             <td class="border border-slate-300 p-2 text-center font-mono text-xs text-slate-600">${item.itemId || '-'}</td>
             <td class="border border-slate-300 p-2 font-medium text-slate-800">${item.name}</td>
-            <td class="border border-slate-300 p-2 text-center font-bold text-slate-800">${item.quantity}</td>
+            <td class="border border-slate-300 p-2 text-center font-bold text-slate-900">${item.quantity}</td>
             <td class="border border-slate-300 p-2 text-center text-slate-600">${item.unit || 'ชิ้น'}</td>
             <td class="border border-slate-300 p-2 text-right text-slate-700">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
             <td class="border border-slate-300 p-2 text-right font-semibold text-slate-900">฿${rowTotal.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
@@ -222,7 +231,6 @@
 
         document.getElementById('totalEstimatedCost').textContent = '฿' + (req.totalEstimatedCost || total).toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
-        // If 'autoprint=1' in query, automatically trigger print
         if (urlParams.get('autoprint') === '1') {
           setTimeout(() => { window.print(); }, 400);
         }
@@ -236,4 +244,3 @@
   </script>
 </body>
 </html>
-

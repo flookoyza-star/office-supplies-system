@@ -1,16 +1,19 @@
 /**
  * Office Supplies Inventory & Requisition System (Client-side Engine)
+ * Features: Role-Based Access Control (Admin, Storekeeper, Department User)
  */
 
 // Application State
 const state = {
+  currentUser: null,
   settings: {},
   items: [],
   categories: [],
   departments: [],
+  users: [],
   requisitions: [],
   stockIns: [],
-  currentTab: 'dashboard',
+  currentTab: 'inventory',
   selectedRequisition: null,
   charts: {
     deptChart: null,
@@ -19,11 +22,11 @@ const state = {
 };
 
 // ---------------------------------------------------------------------------
-// INITIALIZATION
+// INITIALIZATION & AUTHENTICATION
 // ---------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Set default dates for modals
+  // Set default dates
   const today = new Date().toISOString().split('T')[0];
   const reqDateEl = document.getElementById('reqDate');
   const inDateEl = document.getElementById('inDate');
@@ -32,40 +35,230 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (inDateEl) inDateEl.value = today;
   if (reportEndEl) reportEndEl.value = today;
 
-  // First day of current month for report start
   const firstDay = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
   const reportStartEl = document.getElementById('reportStartDate');
   if (reportStartEl) reportStartEl.value = firstDay;
 
-  // Load all initial data
-  await loadAllData();
+  // Check saved session in localStorage
+  const savedUser = localStorage.getItem('office_user');
+  if (savedUser) {
+    try {
+      state.currentUser = JSON.parse(savedUser);
+      document.getElementById('loginScreen').classList.add('hidden');
+      await initializeApp();
+    } catch (e) {
+      localStorage.removeItem('office_user');
+      showLoginScreen();
+    }
+  } else {
+    showLoginScreen();
+  }
 });
 
-async function loadAllData() {
-  try {
-    await Promise.all([
-      fetchSettings(),
-      fetchCategories(),
-      fetchDepartments(),
-      fetchItems(),
-      fetchRequisitions(),
-      fetchStockIns()
-    ]);
+function showLoginScreen() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
 
-    renderDashboard();
-    renderInventoryTable();
-    renderRequisitionsTable();
-    renderStockInsTable();
-    renderSettingsView();
-    populateDropdowns();
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    state.currentUser = json.data;
+    localStorage.setItem('office_user', JSON.stringify(json.data));
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('loginForm').reset();
+
+    await initializeApp();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'ยินดีต้อนรับ',
+      text: `เข้าสู่ระบบในฐานะ: ${state.currentUser.fullName}`,
+      timer: 1500,
+      showConfirmButton: false
+    });
   } catch (err) {
-    console.error('Failed to load initial data:', err);
-    Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อข้อมูลได้ กรุณาลองใหม่อีกครั้ง', 'error');
+    Swal.fire('เข้าสู่ระบบไม่สำเร็จ', err.message, 'error');
+  }
+}
+
+function quickLogin(username, password) {
+  document.getElementById('loginUsername').value = username;
+  document.getElementById('loginPassword').value = password;
+  document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+}
+
+function handleLogout() {
+  Swal.fire({
+    title: 'ออกจากระบบ?',
+    text: 'คุณต้องการออกจากระบบหรือไม่',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'ออกจากระบบ',
+    cancelButtonText: 'ยกเลิก'
+  }).then((res) => {
+    if (res.isConfirmed) {
+      localStorage.removeItem('office_user');
+      state.currentUser = null;
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// APP BOOTSTRAP & ROLE-BASED ACCESS CONTROL (RBAC)
+// ---------------------------------------------------------------------------
+
+async function initializeApp() {
+  updateUserHeaderProfile();
+  applyRolePermissions();
+
+  await Promise.all([
+    fetchSettings(),
+    fetchCategories(),
+    fetchDepartments(),
+    fetchItems(),
+    fetchRequisitions(),
+    fetchStockIns()
+  ]);
+
+  if (state.currentUser.role === 'admin') {
+    await fetchUsers();
+  }
+
+  populateDropdowns();
+
+  // Switch to default role tab
+  if (state.currentUser.role === 'department') {
+    switchTab('inventory');
+  } else {
+    switchTab('dashboard');
+  }
+}
+
+function updateUserHeaderProfile() {
+  const u = state.currentUser;
+  if (!u) return;
+
+  document.getElementById('userDisplayName').textContent = u.fullName;
+
+  const roleBadge = document.getElementById('userRoleBadge');
+  const deptLabel = document.getElementById('userDeptLabel');
+
+  if (u.role === 'admin') {
+    roleBadge.textContent = 'ผู้ดูแลระบบ (Admin)';
+    roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-800 text-white';
+    deptLabel.textContent = '';
+  } else if (u.role === 'storekeeper') {
+    roleBadge.textContent = 'จนท.คลังพัสดุ (Storekeeper)';
+    roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-600 text-white';
+    deptLabel.textContent = 'ห้องพัสดุ';
+  } else {
+    roleBadge.textContent = 'ผู้เบิกประจำแผนก';
+    roleBadge.className = 'px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800';
+    deptLabel.textContent = u.departmentName ? `(${u.departmentName})` : '';
+  }
+}
+
+function applyRolePermissions() {
+  const role = state.currentUser ? state.currentUser.role : 'guest';
+
+  const tabDashboard = document.getElementById('navTabDashboard');
+  const tabStockIns = document.getElementById('navTabStockIns');
+  const tabReports = document.getElementById('navTabReports');
+  const tabSettings = document.getElementById('navTabSettings');
+  const deptBanner = document.getElementById('deptRoleBanner');
+  const btnStockIn = document.getElementById('btnQuickStockIn');
+  const btnAddItem = document.getElementById('btnAddNewItem');
+  const btnExportInv = document.getElementById('btnInventoryExportExcel');
+  const btnExportReq = document.getElementById('btnReqExportExcel');
+  const autoApproveContainer = document.getElementById('autoApproveToggleContainer');
+
+  // Department User Permissions
+  if (role === 'department') {
+    tabDashboard.classList.add('hidden');
+    tabStockIns.classList.add('hidden');
+    tabReports.classList.add('hidden');
+    tabSettings.classList.add('hidden');
+
+    if (deptBanner) {
+      deptBanner.classList.remove('hidden');
+      document.getElementById('bannerDeptName').textContent = state.currentUser.departmentName || 'แผนกของคุณ';
+    }
+
+    if (btnStockIn) btnStockIn.classList.add('hidden');
+    if (btnAddItem) btnAddItem.classList.add('hidden');
+    if (btnExportInv) btnExportInv.classList.add('hidden');
+    if (btnExportReq) btnExportReq.classList.add('hidden');
+    if (autoApproveContainer) autoApproveContainer.classList.add('hidden');
+
+    // Rename tab labels for clarity
+    document.getElementById('inventoryTabLabel').textContent = 'เช็คพัสดุคงเหลือ (พร้อมเบิก)';
+    document.getElementById('requisitionsTabLabel').textContent = 'ใบขอเบิกของแผนกเรา';
+
+    // Hide pricing & admin columns in inventory table
+    document.querySelectorAll('.col-price').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.col-minstock').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.col-admin-actions').forEach(el => el.classList.add('hidden'));
+  }
+  // Storekeeper Permissions (รับเข้า + ตรวจรับใบเซ็น & จ่ายของ)
+  else if (role === 'storekeeper') {
+    tabDashboard.classList.remove('hidden');
+    tabStockIns.classList.remove('hidden');
+    tabReports.classList.add('hidden');
+    tabSettings.classList.add('hidden');
+
+    if (deptBanner) deptBanner.classList.add('hidden');
+    if (btnStockIn) btnStockIn.classList.remove('hidden');
+    if (btnAddItem) btnAddItem.classList.remove('hidden');
+    if (btnExportInv) btnExportInv.classList.remove('hidden');
+    if (btnExportReq) btnExportReq.classList.remove('hidden');
+    if (autoApproveContainer) autoApproveContainer.classList.remove('hidden');
+
+    document.getElementById('inventoryTabLabel').textContent = 'คลังอุปกรณ์/สต็อก';
+    document.getElementById('requisitionsTabLabel').textContent = 'คิวใบเบิก & จ่ายพัสดุ';
+
+    document.querySelectorAll('.col-price').forEach(el => el.classList.remove('hidden'));
+    document.querySelectorAll('.col-minstock').forEach(el => el.classList.remove('hidden'));
+    document.querySelectorAll('.col-admin-actions').forEach(el => el.classList.remove('hidden'));
+  }
+  // Admin Permissions (Full Control)
+  else if (role === 'admin') {
+    tabDashboard.classList.remove('hidden');
+    tabStockIns.classList.remove('hidden');
+    tabReports.classList.remove('hidden');
+    tabSettings.classList.remove('hidden');
+
+    if (deptBanner) deptBanner.classList.add('hidden');
+    if (btnStockIn) btnStockIn.classList.remove('hidden');
+    if (btnAddItem) btnAddItem.classList.remove('hidden');
+    if (btnExportInv) btnExportInv.classList.remove('hidden');
+    if (btnExportReq) btnExportReq.classList.remove('hidden');
+    if (autoApproveContainer) autoApproveContainer.classList.remove('hidden');
+
+    document.getElementById('inventoryTabLabel').textContent = 'คลังอุปกรณ์/สต็อก';
+    document.getElementById('requisitionsTabLabel').textContent = 'รายการใบเบิกพัสดุ';
+
+    document.querySelectorAll('.col-price').forEach(el => el.classList.remove('hidden'));
+    document.querySelectorAll('.col-minstock').forEach(el => el.classList.remove('hidden'));
+    document.querySelectorAll('.col-admin-actions').forEach(el => el.classList.remove('hidden'));
   }
 }
 
 // ---------------------------------------------------------------------------
-// API FETCH HELPERS
+// DATA FETCHERS
 // ---------------------------------------------------------------------------
 
 async function fetchSettings() {
@@ -95,19 +288,43 @@ async function fetchDepartments() {
 async function fetchItems() {
   const res = await fetch('/api/items');
   const json = await res.json();
-  if (json.success) state.items = json.data;
+  if (json.success) {
+    state.items = json.data;
+    renderInventoryTable();
+  }
+}
+
+async function fetchUsers() {
+  const res = await fetch('/api/users');
+  const json = await res.json();
+  if (json.success) {
+    state.users = json.data;
+    renderUsersTable();
+  }
 }
 
 async function fetchRequisitions() {
-  const res = await fetch('/api/requisitions');
+  let url = '/api/requisitions';
+  // If department user, only fetch their department's requisitions!
+  if (state.currentUser && state.currentUser.role === 'department' && state.currentUser.departmentId) {
+    url += `?departmentId=${state.currentUser.departmentId}`;
+  }
+
+  const res = await fetch(url);
   const json = await res.json();
-  if (json.success) state.requisitions = json.data;
+  if (json.success) {
+    state.requisitions = json.data;
+    renderRequisitionsTable();
+  }
 }
 
 async function fetchStockIns() {
   const res = await fetch('/api/stock-in');
   const json = await res.json();
-  if (json.success) state.stockIns = json.data;
+  if (json.success) {
+    state.stockIns = json.data;
+    renderStockInsTable();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -117,17 +334,14 @@ async function fetchStockIns() {
 function switchTab(tabId) {
   state.currentTab = tabId;
 
-  // Hide all tab content
   document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
 
-  // Show target tab
   const target = document.getElementById(`tab-${tabId}`);
   if (target) {
     target.classList.remove('hidden');
     target.classList.add('fade-in');
   }
 
-  // Update nav button styles
   document.querySelectorAll('#mainTabNav .tab-btn').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.className = 'tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-blue-600 bg-blue-50/70 border-b-2 border-blue-600 flex items-center gap-2 whitespace-nowrap';
@@ -136,11 +350,12 @@ function switchTab(tabId) {
     }
   });
 
-  // Trigger tab-specific refresh
   if (tabId === 'dashboard') {
     renderDashboard();
   } else if (tabId === 'reports') {
     generateReport();
+  } else if (tabId === 'settings' && state.currentUser.role === 'admin') {
+    renderSettingsView();
   }
 }
 
@@ -149,22 +364,21 @@ function switchTab(tabId) {
 // ---------------------------------------------------------------------------
 
 async function renderDashboard() {
+  if (state.currentUser.role === 'department') return;
+
   try {
     const res = await fetch('/api/dashboard');
     const json = await res.json();
     if (!json.success) return;
 
-    const data = json.data;
-    const { summary, lowStockList, recentRequisitions, deptUsage, catStock } = data;
+    const { summary, lowStockList, recentRequisitions, deptUsage, catStock } = json.data;
 
-    // Stat Cards
     document.getElementById('dashTotalItems').textContent = summary.totalItems;
     document.getElementById('dashLowStockCount').textContent = summary.lowStockCount;
     document.getElementById('dashOutOfStockSub').textContent = `หมดสต็อก ${summary.outOfStockCount} รายการ`;
     document.getElementById('dashPendingReqs').textContent = summary.pendingRequisitionCount;
     document.getElementById('dashInventoryValue').textContent = `฿${summary.totalInventoryValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
 
-    // Badges in Header Nav
     const lowBadge = document.getElementById('lowStockNavBadge');
     if (lowBadge) {
       if (summary.lowStockCount > 0) {
@@ -185,11 +399,10 @@ async function renderDashboard() {
       }
     }
 
-    // Low stock warning banner
     const alertBanner = document.getElementById('dashboardAlertBanner');
     if (summary.lowStockCount > 0) {
       alertBanner.classList.remove('hidden');
-      document.getElementById('dashboardAlertText').textContent = `มีอุปกรณ์ ${summary.lowStockCount} รายการ ที่สต็อกต่ำกว่าจุดเตือน หรือหมดสต็อก กรุณาตรวจสอบและดำเนินการจัดซื้อ`;
+      document.getElementById('dashboardAlertText').textContent = `มีอุปกรณ์ ${summary.lowStockCount} รายการ ที่สต็อกต่ำกว่าจุดเตือน หรือหมดสต็อก`;
     } else {
       alertBanner.classList.add('hidden');
     }
@@ -251,7 +464,6 @@ async function renderDashboard() {
       }).join('');
     }
 
-    // Render Charts
     renderDeptUsageChart(deptUsage);
     renderCategoryStockChart(catStock);
   } catch (err) {
@@ -266,9 +478,7 @@ function renderDeptUsageChart(deptUsage) {
   const labels = Object.keys(deptUsage);
   const dataValues = labels.map(key => deptUsage[key].amount);
 
-  if (state.charts.deptChart) {
-    state.charts.deptChart.destroy();
-  }
+  if (state.charts.deptChart) state.charts.deptChart.destroy();
 
   state.charts.deptChart = new Chart(ctx, {
     type: 'bar',
@@ -284,20 +494,11 @@ function renderDeptUsageChart(deptUsage) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `มูลค่า: ฿${Number(ctx.raw).toLocaleString('th-TH', { minimumFractionDigits: 2 })}`
-          }
-        }
-      },
+      plugins: { legend: { display: false } },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: {
-            callback: (v) => '฿' + v.toLocaleString()
-          }
+          ticks: { callback: (v) => '฿' + v.toLocaleString() }
         }
       }
     }
@@ -311,9 +512,7 @@ function renderCategoryStockChart(catStock) {
   const labels = Object.keys(catStock);
   const values = labels.map(k => catStock[k].value);
 
-  if (state.charts.catChart) {
-    state.charts.catChart.destroy();
-  }
+  if (state.charts.catChart) state.charts.catChart.destroy();
 
   state.charts.catChart = new Chart(ctx, {
     type: 'doughnut',
@@ -321,34 +520,21 @@ function renderCategoryStockChart(catStock) {
       labels: labels,
       datasets: [{
         data: values,
-        backgroundColor: [
-          '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4'
-        ]
+        backgroundColor: ['#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#06b6d4']
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          position: 'right',
-          labels: {
-            font: { family: 'Prompt', size: 11 },
-            boxWidth: 12
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ` ฿${Number(ctx.raw).toLocaleString('th-TH', { minimumFractionDigits: 2 })}`
-          }
-        }
+        legend: { position: 'right', labels: { font: { family: 'Prompt', size: 11 }, boxWidth: 12 } }
       }
     }
   });
 }
 
 // ---------------------------------------------------------------------------
-// TAB 2: INVENTORY CATALOG & ITEM MANAGEMENT
+// TAB 2: INVENTORY & STOCK
 // ---------------------------------------------------------------------------
 
 function renderInventoryTable(itemsToRender = null) {
@@ -356,10 +542,11 @@ function renderInventoryTable(itemsToRender = null) {
   const tbody = document.getElementById('inventoryTableBody');
   if (!tbody) return;
 
+  const isDepartmentUser = state.currentUser && state.currentUser.role === 'department';
+
   if (items.length === 0) {
     tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400">ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่ค้นหา</td></tr>`;
     document.getElementById('inventoryRowCountText').textContent = 'แสดง 0 รายการ';
-    document.getElementById('inventoryTotalValuationText').textContent = 'มูลค่ารวม: ฿0.00';
     return;
   }
 
@@ -369,12 +556,31 @@ function renderInventoryTable(itemsToRender = null) {
     const val = Number(item.totalValue || (item.currentStock * item.unitPrice) || 0);
     totalValuation += val;
 
-    let stockBadge = `<span class="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-800">${item.currentStock}</span>`;
+    let stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-800">${item.currentStock} ${item.unit}</span>`;
     if (item.currentStock <= 0) {
-      stockBadge = `<span class="px-2 py-0.5 rounded font-bold bg-rose-100 text-rose-700 animate-pulse">0 (หมด)</span>`;
+      stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-rose-100 text-rose-700 animate-pulse">หมดสต็อก</span>`;
     } else if (item.currentStock <= item.minStock) {
-      stockBadge = `<span class="px-2 py-0.5 rounded font-bold bg-amber-100 text-amber-800">⚠️ ${item.currentStock} (ใกล้หมด)</span>`;
+      stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800">⚠️ เหลือ ${item.currentStock} ${item.unit}</span>`;
     }
+
+    const priceCol = isDepartmentUser ? '' : `
+      <td class="p-3 text-center text-slate-500 font-medium col-minstock">${item.minStock} ${item.unit}</td>
+      <td class="p-3 text-right text-slate-700 col-price">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+      <td class="p-3 text-right font-semibold text-slate-900 col-price">฿${val.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+    `;
+
+    const actionCol = isDepartmentUser ? '' : `
+      <td class="p-3 text-center col-admin-actions">
+        <div class="flex items-center justify-center gap-1.5">
+          <button onclick="editItem('${item.id}')" title="แก้ไข" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition flex items-center justify-center text-xs">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button onclick="deleteItem('${item.id}')" title="ลบรายการ" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition flex items-center justify-center text-xs">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </div>
+      </td>
+    `;
 
     return `
       <tr class="hover:bg-slate-50 transition">
@@ -389,27 +595,18 @@ function renderInventoryTable(itemsToRender = null) {
             ${item.categoryName || 'ทั่วไป'}
           </span>
         </td>
-        <td class="p-3 text-center">${stockBadge} <span class="text-xs text-slate-400">${item.unit}</span></td>
-        <td class="p-3 text-center text-slate-500 font-medium">${item.minStock} ${item.unit}</td>
-        <td class="p-3 text-right text-slate-700">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-        <td class="p-3 text-right font-semibold text-slate-900">฿${val.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+        <td class="p-3 text-center">${stockBadge}</td>
+        ${priceCol}
         <td class="p-3 text-slate-600 text-xs">${item.location || '-'}</td>
-        <td class="p-3 text-center">
-          <div class="flex items-center justify-center gap-1.5">
-            <button onclick="editItem('${item.id}')" title="แก้ไข" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition flex items-center justify-center text-xs">
-              <i class="fa-solid fa-pen"></i>
-            </button>
-            <button onclick="deleteItem('${item.id}')" title="ลบรายการ" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition flex items-center justify-center text-xs">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </div>
-        </td>
+        ${actionCol}
       </tr>
     `;
   }).join('');
 
   document.getElementById('inventoryRowCountText').textContent = `แสดง ${items.length} รายการ จากทั้งหมด ${state.items.length} รายการ`;
-  document.getElementById('inventoryTotalValuationText').textContent = `มูลค่ารวม: ฿${totalValuation.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+  if (!isDepartmentUser) {
+    document.getElementById('inventoryTotalValuationText').textContent = `มูลค่ารวม: ฿${totalValuation.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+  }
 }
 
 function filterInventoryTable() {
@@ -417,7 +614,7 @@ function filterInventoryTable() {
   const cat = document.getElementById('inventoryCategoryFilter').value;
   const status = document.getElementById('inventoryStatusFilter').value;
 
-  let filtered = state.items.filter(item => {
+  const filtered = state.items.filter(item => {
     const matchSearch = !search ||
       (item.name || '').toLowerCase().includes(search) ||
       (item.code || '').toLowerCase().includes(search) ||
@@ -445,130 +642,8 @@ function filterByLowStock() {
   }
 }
 
-// Item Modal logic
-function openItemModal(item = null) {
-  const modal = document.getElementById('itemModal');
-  const title = document.getElementById('itemModalTitle');
-  const catSelect = document.getElementById('itemCategoryId');
-
-  // Populate categories in modal
-  catSelect.innerHTML = state.categories.map(c => `
-    <option value="${c.id}">${c.name}</option>
-  `).join('');
-
-  if (item) {
-    title.textContent = 'แก้ไขรายการอุปกรณ์';
-    document.getElementById('itemId').value = item.id;
-    document.getElementById('itemCode').value = item.code || '';
-    document.getElementById('itemName').value = item.name || '';
-    document.getElementById('itemCategoryId').value = item.categoryId || '';
-    document.getElementById('itemUnit').value = item.unit || '';
-    document.getElementById('itemCurrentStock').value = item.currentStock || 0;
-    document.getElementById('itemMinStock').value = item.minStock || 5;
-    document.getElementById('itemUnitPrice').value = item.unitPrice || 0;
-    document.getElementById('itemLocation').value = item.location || '';
-    document.getElementById('itemDescription').value = item.description || '';
-  } else {
-    title.textContent = 'เพิ่มรายการอุปกรณ์ใหม่';
-    document.getElementById('itemForm').reset();
-    document.getElementById('itemId').value = '';
-    // Auto generate next code
-    const nextNum = state.items.length + 1;
-    document.getElementById('itemCode').value = `OFF-${String(nextNum).padStart(3, '0')}`;
-    document.getElementById('itemMinStock').value = state.settings.lowStockThresholdDefault || 5;
-  }
-
-  modal.classList.remove('hidden');
-}
-
-async function handleItemFormSubmit(e) {
-  e.preventDefault();
-  const id = document.getElementById('itemId').value;
-  const payload = {
-    code: document.getElementById('itemCode').value.trim(),
-    name: document.getElementById('itemName').value.trim(),
-    categoryId: document.getElementById('itemCategoryId').value,
-    unit: document.getElementById('itemUnit').value.trim(),
-    currentStock: Number(document.getElementById('itemCurrentStock').value) || 0,
-    minStock: Number(document.getElementById('itemMinStock').value) || 5,
-    unitPrice: Number(document.getElementById('itemUnitPrice').value) || 0,
-    location: document.getElementById('itemLocation').value.trim(),
-    description: document.getElementById('itemDescription').value.trim()
-  };
-
-  try {
-    let res;
-    if (id) {
-      res = await fetch(`/api/items/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } else {
-      res = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    }
-
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message);
-
-    closeModal('itemModal');
-    Swal.fire({
-      icon: 'success',
-      title: json.message || 'บันทึกสำเร็จ',
-      timer: 1500,
-      showConfirmButton: false
-    });
-
-    await fetchItems();
-    renderInventoryTable();
-    renderDashboard();
-  } catch (err) {
-    Swal.fire('ข้อผิดพลาด', err.message, 'error');
-  }
-}
-
-function editItem(id) {
-  const item = state.items.find(i => i.id === id);
-  if (item) openItemModal(item);
-}
-
-async function deleteItem(id) {
-  const item = state.items.find(i => i.id === id);
-  if (!item) return;
-
-  const result = await Swal.fire({
-    title: 'ยืนยันการลบรายการ?',
-    text: `ต้องการลบ "${item.name}" ออกจากระบบหรือไม่? ข้อมูลการเบิกในอดีตอาจได้รับผลกระทบ`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#ef4444',
-    cancelButtonColor: '#64748b',
-    confirmButtonText: 'ใช่, ลบรายการนี้',
-    cancelButtonText: 'ยกเลิก'
-  });
-
-  if (result.isConfirmed) {
-    try {
-      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.message);
-
-      Swal.fire('ลบสำเร็จ', 'ลบรายการอุปกรณ์เรียบร้อยแล้ว', 'success');
-      await fetchItems();
-      renderInventoryTable();
-      renderDashboard();
-    } catch (err) {
-      Swal.fire('ไม่สามารถลบได้', err.message, 'error');
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
-// TAB 3: REQUISITIONS (เบิก-จ่ายพัสดุ)
+// TAB 3: REQUISITIONS (เบิก-จ่ายพัสดุ & เวิร์กโฟลว์ลายเซ็น)
 // ---------------------------------------------------------------------------
 
 function renderRequisitionsTable(reqsToRender = null) {
@@ -576,17 +651,29 @@ function renderRequisitionsTable(reqsToRender = null) {
   const tbody = document.getElementById('requisitionTableBody');
   if (!tbody) return;
 
+  const isStorekeeper = state.currentUser && (state.currentUser.role === 'storekeeper' || state.currentUser.role === 'admin');
+
   if (reqs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">ยังไม่มีข้อมูลใบเบิกพัสดุ</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">ยังไม่มีรายการใบขอเบิกพัสดุ</td></tr>`;
     return;
   }
 
   tbody.innerHTML = reqs.map(req => {
-    let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">รออนุมัติ/รอเบิก</span>';
-    if (req.status === 'approved') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">อนุมัติ/จ่ายแล้ว</span>';
+    let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">รอหัวหน้าเซ็น / รอจ่าย</span>';
+    if (req.status === 'approved') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">อนุมัติ & จ่ายของแล้ว</span>';
     if (req.status === 'rejected') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">ปฏิเสธคำขอ</span>';
 
     const itemCount = (req.items || []).length;
+
+    // Dispense Button for Storekeeper/Admin if pending
+    let dispenseBtn = '';
+    if (isStorekeeper && req.status === 'pending') {
+      dispenseBtn = `
+        <button onclick="promptDispenseOrder('${req.id}')" title="ตรวจรับใบเซ็นและจ่ายของ" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs inline-flex items-center gap-1">
+          <i class="fa-solid fa-check"></i> จ่ายของ
+        </button>
+      `;
+    }
 
     return `
       <tr class="hover:bg-slate-50 transition">
@@ -600,12 +687,13 @@ function renderRequisitionsTable(reqsToRender = null) {
         <td class="p-3 text-center">${statusBadge}</td>
         <td class="p-3 text-center">
           <div class="flex items-center justify-center gap-1.5">
-            <button onclick="viewRequisitionDetail('${req.id}')" title="ดูรายละเอียดและอนุมัติ" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition">
-              ดูข้อมูล
-            </button>
-            <a href="print-slip.html?id=${req.id}" target="_blank" title="พิมพ์ใบเบิก" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center justify-center text-xs">
-              <i class="fa-solid fa-print"></i>
+            ${dispenseBtn}
+            <a href="print-slip.html?id=${req.id}" target="_blank" title="พิมพ์ใบเบิกเพื่อให้หัวหน้าเซ็น" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1 transition shadow-xs">
+              <i class="fa-solid fa-print"></i> พิมพ์ใบเบิก
             </a>
+            <button onclick="viewRequisitionDetail('${req.id}')" title="ดูรายละเอียด" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-600 transition flex items-center justify-center text-xs">
+              <i class="fa-solid fa-eye"></i>
+            </button>
           </div>
         </td>
       </tr>
@@ -634,7 +722,7 @@ function filterRequisitionTable() {
   renderRequisitionsTable(filtered);
 }
 
-// Requisition Modal & Dynamic Rows
+// Requisition Modal
 function openRequisitionModal() {
   const modal = document.getElementById('requisitionModal');
   const deptSelect = document.getElementById('reqDepartmentId');
@@ -646,9 +734,16 @@ function openRequisitionModal() {
   document.getElementById('requisitionForm').reset();
   document.getElementById('reqDate').value = new Date().toISOString().split('T')[0];
 
+  // Auto fill user's name and department if logged in as department
+  if (state.currentUser) {
+    document.getElementById('reqRequisitioner').value = state.currentUser.fullName || '';
+    if (state.currentUser.departmentId) {
+      deptSelect.value = state.currentUser.departmentId;
+    }
+  }
+
   const container = document.getElementById('requisitionRowsContainer');
   container.innerHTML = '';
-  // Add first row by default
   addRequisitionRow();
 
   calculateReqModalTotal();
@@ -663,7 +758,6 @@ function addRequisitionRow() {
   row.id = rowId;
   row.className = 'grid grid-cols-12 gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl items-center text-xs';
 
-  // Build item options
   const itemOptions = state.items.map(item => `
     <option value="${item.id}" data-unit="${item.unit}" data-stock="${item.currentStock}" data-price="${item.unitPrice}">
       ${item.name} (คงเหลือ: ${item.currentStock} ${item.unit})
@@ -719,7 +813,6 @@ function handleReqItemChange(rowId) {
   row.querySelector('.req-item-unit').textContent = unit;
   row.querySelector('.req-item-price').textContent = price.toLocaleString('th-TH', { minimumFractionDigits: 2 });
 
-  const qtyInput = row.querySelector('.req-item-qty');
   if (stock <= 0) {
     Swal.fire('ของหมดสต็อก', 'อุปกรณ์รายการนี้ไม่มีของในคลัง (คงเหลือ 0) อาจไม่สามารถเบิกจ่ายได้ทันที', 'warning');
   }
@@ -762,11 +855,11 @@ async function handleRequisitionSubmit(e) {
   const departmentId = document.getElementById('reqDepartmentId').value;
   const purpose = document.getElementById('reqPurpose').value.trim();
   const date = document.getElementById('reqDate').value;
-  const autoApprove = document.getElementById('reqAutoApprove').checked;
+  const autoApproveEl = document.getElementById('reqAutoApprove');
+  const autoApprove = autoApproveEl ? autoApproveEl.checked : false;
 
   const items = [];
   const rows = document.querySelectorAll('#requisitionRowsContainer .grid');
-
   let stockWarningItems = [];
 
   rows.forEach(row => {
@@ -795,7 +888,7 @@ async function handleRequisitionSubmit(e) {
     Swal.fire({
       icon: 'error',
       title: 'สต็อกไม่เพียงพอสำหรับการตัดจ่ายทันที',
-      html: `รายการดังต่อไปนี้มีจำนวนในคลังไม่พอ:<br><br><b>${stockWarningItems.join('<br>')}</b><br><br>กรุณาปรับลดจำนวน หรือบันทึกแบบ "รออนุมัติ/รอเบิก" แทน`
+      html: `รายการดังต่อไปนี้มีจำนวนในคลังไม่พอ:<br><br><b>${stockWarningItems.join('<br>')}</b>`
     });
     return;
   }
@@ -823,27 +916,75 @@ async function handleRequisitionSubmit(e) {
 
     Swal.fire({
       icon: 'success',
-      title: 'สร้างใบขอเบิกสำเร็จ',
-      text: `เลขที่ใบเบิก: ${json.data.id}`,
+      title: 'สร้างใบขอเบิกสำเร็จ!',
+      html: `
+        เลขที่ใบเบิก: <b>${json.data.id}</b><br><br>
+        กรุณากด <b>"พิมพ์ใบเบิก"</b> เพื่อนำเอกสารไปเสนอหัวหน้าแผนกเซ็นอนุมัติ ก่อนนำมาเบิกพัสดุที่ห้องพัสดุครับ
+      `,
       showCancelButton: true,
-      confirmButtonText: 'พิมพ์ใบเบิกทันที',
+      confirmButtonText: '🖨️ สั่งพิมพ์ใบเบิกทันที (Print A4)',
       cancelButtonText: 'ปิด'
     }).then(result => {
       if (result.isConfirmed) {
-        window.open(`print-slip.html?id=${json.data.id}`, '_blank');
+        window.open(`print-slip.html?id=${json.data.id}&autoprint=1`, '_blank');
       }
     });
 
     await Promise.all([fetchRequisitions(), fetchItems()]);
-    renderRequisitionsTable();
-    renderInventoryTable();
-    renderDashboard();
   } catch (err) {
     Swal.fire('ข้อผิดพลาด', err.message, 'error');
   }
 }
 
-// View Requisition Details & Actions (Approve / Reject)
+// Storekeeper Action: ตรวจรับใบเบิกที่เซ็นแล้ว & กดจ่ายของ
+async function promptDispenseOrder(reqId) {
+  const req = state.requisitions.find(r => r.id === reqId);
+  if (!req) return;
+
+  const result = await Swal.fire({
+    title: `ตรวจรับใบเซ็น & จ่ายพัสดุ?`,
+    html: `
+      ใบเบิกเลขที่: <b>${req.id}</b><br>
+      ผู้ขอเบิก: <b>${req.requisitioner}</b> (${req.departmentName})<br><br>
+      <div class="text-left text-xs bg-amber-50 p-3 rounded-lg border border-amber-200 text-amber-900">
+        <b>โปรดตรวจสอบ:</b><br>
+        1. ผู้เบิกนำใบเบิกกระดาษที่มี <b>"ลายเซ็นหัวหน้าแผนกอนุมัติแล้ว"</b> มาแสดง<br>
+        2. ตรวจนับของครบถ้วนตามรายการ<br>
+        3. เมื่อกดยืนยัน ระบบจะ <b>ตัดสต็อกพัสดุในคลังทันที</b>
+      </div>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ยืนยันจ่ายของ & ตัดสต็อก',
+    cancelButtonText: 'ยกเลิก'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const res = await fetch(`/api/requisitions/${reqId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'approved',
+          dispatchedBy: state.currentUser.fullName || 'เจ้าหน้าที่ห้องพัสดุ'
+        })
+      });
+
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+
+      Swal.fire('จ่ายของสำเร็จ!', 'ระบบได้ทำการตัดสต็อกเรียบร้อยแล้ว กรุณาลงชื่อผู้จ่ายในใบเบิกกระดาษให้ผู้เบิก', 'success');
+
+      await Promise.all([fetchRequisitions(), fetchItems()]);
+      if (state.currentUser.role !== 'department') renderDashboard();
+    } catch (err) {
+      Swal.fire('ข้อผิดพลาด', err.message, 'error');
+    }
+  }
+}
+
 function viewRequisitionDetail(id) {
   const req = state.requisitions.find(r => r.id === id);
   if (!req) return;
@@ -860,16 +1001,15 @@ function viewRequisitionDetail(id) {
   const badgeEl = document.getElementById('detailReqStatusBadge');
   if (req.status === 'approved') {
     badgeEl.className = 'px-2 py-0.5 rounded font-semibold text-xs bg-emerald-100 text-emerald-800';
-    badgeEl.textContent = 'อนุมัติ / จ่ายของแล้ว';
+    badgeEl.textContent = 'อนุมัติ & จ่ายของแล้ว (ตัดสต็อกแล้ว)';
   } else if (req.status === 'rejected') {
     badgeEl.className = 'px-2 py-0.5 rounded font-semibold text-xs bg-rose-100 text-rose-800';
     badgeEl.textContent = 'ปฏิเสธคำขอ';
   } else {
     badgeEl.className = 'px-2 py-0.5 rounded font-semibold text-xs bg-amber-100 text-amber-800';
-    badgeEl.textContent = 'รออนุมัติ / รอเบิก';
+    badgeEl.textContent = 'รอหัวหน้าแผนกเซ็นอนุมัติ / รอเบิก';
   }
 
-  // Items table
   const tbody = document.getElementById('detailReqItemsTbody');
   tbody.innerHTML = (req.items || []).map(item => `
     <tr>
@@ -881,21 +1021,26 @@ function viewRequisitionDetail(id) {
     </tr>
   `).join('');
 
-  // Status Action Buttons
   const actionDiv = document.getElementById('detailStatusActions');
+  const isStore = state.currentUser && (state.currentUser.role === 'storekeeper' || state.currentUser.role === 'admin');
+
   if (req.status === 'pending') {
-    actionDiv.innerHTML = `
-      <button onclick="updateReqStatus('${req.id}', 'rejected')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition">
-        <i class="fa-solid fa-xmark mr-1"></i> ปฏิเสธคำขอ
-      </button>
-      <button onclick="updateReqStatus('${req.id}', 'approved')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition">
-        <i class="fa-solid fa-check mr-1"></i> อนุมัติ & จ่ายของ (ตัดสต็อก)
-      </button>
-    `;
+    if (isStore) {
+      actionDiv.innerHTML = `
+        <button onclick="updateReqStatus('${req.id}', 'rejected')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold transition">
+          <i class="fa-solid fa-xmark mr-1"></i> ปฏิเสธ
+        </button>
+        <button onclick="promptDispenseOrder('${req.id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+          <i class="fa-solid fa-check mr-1"></i> ตรวจรับใบเซ็น & จ่ายของ (ตัดสต็อก)
+        </button>
+      `;
+    } else {
+      actionDiv.innerHTML = `<span class="text-xs text-amber-700 font-medium">โปรดสั่งพิมพ์ใบเบิกนี้ไปให้หัวหน้าแผนกเซ็น แล้วนำไปเบิกที่ห้องพัสดุ</span>`;
+    }
   } else if (req.status === 'approved') {
     actionDiv.innerHTML = `
       <span class="text-xs text-emerald-700 font-medium">
-        <i class="fa-solid fa-circle-check"></i> ดำเนินการจ่ายของแล้วเมื่อ ${req.dispatchedAt ? new Date(req.dispatchedAt).toLocaleDateString('th-TH') : '-'}
+        <i class="fa-solid fa-circle-check"></i> ดำเนินการจ่ายของแล้วโดย: ${req.dispatchedBy || 'เจ้าหน้าที่พัสดุ'}
       </span>
     `;
   } else {
@@ -912,12 +1057,11 @@ function openPrintSlipWindow() {
 }
 
 async function updateReqStatus(id, newStatus) {
-  const statusName = newStatus === 'approved' ? 'อนุมัติและจ่ายพัสดุ (ระบบจะตัดสต็อกอัตโนมัติ)' : 'ปฏิเสธคำขอเบิก';
   const result = await Swal.fire({
-    title: `ยืนยัน${statusName}?`,
-    icon: newStatus === 'approved' ? 'question' : 'warning',
+    title: `ยืนยันการปฏิเสธคำขอ?`,
+    icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยัน',
+    confirmButtonText: 'ยืนยันปฏิเสธ',
     cancelButtonText: 'ยกเลิก'
   });
 
@@ -936,9 +1080,6 @@ async function updateReqStatus(id, newStatus) {
       Swal.fire('สำเร็จ', json.message, 'success');
 
       await Promise.all([fetchRequisitions(), fetchItems()]);
-      renderRequisitionsTable();
-      renderInventoryTable();
-      renderDashboard();
     } catch (err) {
       Swal.fire('ข้อผิดพลาด', err.message, 'error');
     }
@@ -993,6 +1134,10 @@ function openStockInModal() {
   const modal = document.getElementById('stockInModal');
   document.getElementById('stockInForm').reset();
   document.getElementById('inDate').value = new Date().toISOString().split('T')[0];
+
+  if (state.currentUser) {
+    document.getElementById('inReceiverName').value = state.currentUser.fullName || '';
+  }
 
   const container = document.getElementById('stockInRowsContainer');
   container.innerHTML = '';
@@ -1139,14 +1284,7 @@ async function handleStockInSubmit(e) {
     return;
   }
 
-  const payload = {
-    date,
-    poNumber,
-    supplier,
-    receiverName,
-    notes,
-    items
-  };
+  const payload = { date, poNumber, supplier, receiverName, notes, items };
 
   try {
     const res = await fetch('/api/stock-in', {
@@ -1162,9 +1300,7 @@ async function handleStockInSubmit(e) {
     Swal.fire('รับเข้าสต็อกสำเร็จ', `บันทึกรับเข้าเลขที่ ${json.data.id} เรียบร้อยแล้ว สต็อกพัสดุได้รับการอัปเดต`, 'success');
 
     await Promise.all([fetchStockIns(), fetchItems()]);
-    renderStockInsTable();
-    renderInventoryTable();
-    renderDashboard();
+    if (state.currentUser.role !== 'department') renderDashboard();
   } catch (err) {
     Swal.fire('ข้อผิดพลาด', err.message, 'error');
   }
@@ -1196,16 +1332,10 @@ function viewStockInDetail(id) {
 }
 
 // ---------------------------------------------------------------------------
-// TAB 5: COMPREHENSIVE REPORT ENGINE (ออกรายงานอย่างละเอียด)
+// TAB 5: COMPREHENSIVE REPORTS (Admin)
 // ---------------------------------------------------------------------------
 
-let currentReportData = {
-  type: 'inventory',
-  title: '',
-  headers: [],
-  rows: [],
-  summary: {}
-};
+let currentReportData = { type: 'inventory', title: '', headers: [], rows: [] };
 
 async function generateReport() {
   const type = document.getElementById('reportTypeSelect').value;
@@ -1220,13 +1350,7 @@ async function generateReport() {
     day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
   });
 
-  const queryParams = new URLSearchParams({
-    type,
-    categoryId,
-    departmentId,
-    startDate,
-    endDate
-  });
+  const queryParams = new URLSearchParams({ type, categoryId, departmentId, startDate, endDate });
 
   try {
     const res = await fetch(`/api/reports?${queryParams.toString()}`);
@@ -1242,7 +1366,6 @@ async function generateReport() {
     let rowsHtml = '';
     let footHtml = '';
 
-    // 1. Current Inventory Report
     if (type === 'inventory') {
       title = '1. รายงานสรุปสต็อกคงเหลือและมูลค่ารวมตามหมวดหมู่';
       thead.innerHTML = `
@@ -1296,10 +1419,7 @@ async function generateReport() {
       `;
 
       updateReportKpis('จำนวนรายการวัสดุ', (data.inventory || []).length, 'รวมจำนวนสต็อก (หน่วย)', totalUnits.toLocaleString(), 'มูลค่ารวมพัสดุในคลัง', `฿${totalValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
-    }
-
-    // 2. Requisition Report
-    else if (type === 'requisition') {
+    } else if (type === 'requisition') {
       title = '2. รายงานการขอเบิก-จ่ายพัสดุ (ตามแผนก/บุคคล)';
       thead.innerHTML = `
         <tr>
@@ -1319,7 +1439,6 @@ async function generateReport() {
       rowsHtml = (data.requisitions || []).map(r => {
         totalReqCost += Number(r.totalEstimatedCost || 0);
         totalReqItems += (r.items || []).length;
-
         const itemsSummary = (r.items || []).map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', ');
 
         let statusText = 'รอเบิก';
@@ -1347,10 +1466,7 @@ async function generateReport() {
       `;
 
       updateReportKpis('จำนวนใบขอเบิก', (data.requisitions || []).length, 'รวมรายการที่เบิก', totalReqItems.toLocaleString(), 'มูลค่าการเบิกรวม', `฿${totalReqCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
-    }
-
-    // 3. Stock In Report
-    else if (type === 'stockin') {
+    } else if (type === 'stockin') {
       title = '3. รายงานการรับเข้าพัสดุอุปกรณ์เข้าคลังสต็อก';
       thead.innerHTML = `
         <tr>
@@ -1390,10 +1506,7 @@ async function generateReport() {
       `;
 
       updateReportKpis('จำนวนครั้งที่รับเข้า', (data.stockIns || []).length, 'ผู้จำหน่ายทั้งหมด', new Set((data.stockIns || []).map(s => s.supplier)).size, 'มูลค่ารับเข้าสต็อกรวม', `฿${totalInCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
-    }
-
-    // 4. Department Expense Analysis
-    else if (type === 'dept_expense') {
+    } else if (type === 'dept_expense') {
       title = '4. รายงานสรุปค่าใช้จ่ายและปริมาณการเบิกอุปกรณ์ตามแผนก';
       thead.innerHTML = `
         <tr>
@@ -1419,9 +1532,7 @@ async function generateReport() {
         deptSummary[dId].totalCost += (r.totalEstimatedCost || 0);
         grandCost += (r.totalEstimatedCost || 0);
 
-        (r.items || []).forEach(i => {
-          deptSummary[dId].itemsQty += (i.quantity || 0);
-        });
+        (r.items || []).forEach(i => { deptSummary[dId].itemsQty += (i.quantity || 0); });
       });
 
       const deptList = Object.values(deptSummary).sort((a, b) => b.totalCost - a.totalCost);
@@ -1449,10 +1560,7 @@ async function generateReport() {
       `;
 
       updateReportKpis('แผนกทั้งหมด', deptList.length, 'ยอดเบิกรวมทั้งหมด', (data.requisitions || []).length + ' ใบ', 'รวมค่าใช้จ่ายทั้งสิ้น', `฿${grandCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
-    }
-
-    // 5. Low Stock / Reorder Alert List
-    else if (type === 'lowstock') {
+    } else if (type === 'lowstock') {
       title = '5. รายงานรายการวัสดุที่ต้องจัดซื้อเพิ่ม (ต่ำกว่าเกณฑ์สั่งซื้อ)';
       thead.innerHTML = `
         <tr>
@@ -1472,7 +1580,6 @@ async function generateReport() {
       let totalReorderBudget = 0;
 
       rowsHtml = lowItems.map((item, idx) => {
-        // Suggested purchase: minStock * 2 - currentStock
         const suggestedQty = Math.max(item.minStock, (item.minStock * 2) - item.currentStock);
         const estCost = suggestedQty * (item.unitPrice || 0);
         totalReorderBudget += estCost;
@@ -1493,7 +1600,7 @@ async function generateReport() {
       }).join('');
 
       if (lowItems.length === 0) {
-        rowsHtml = `<tr><td colspan="9" class="p-8 text-center text-slate-400">ยอดเยี่ยม! พัสดุทุกรายการมีสต็อกเพียงพอ ไม่พบรายการที่ต้องสั่งซื้อด่วน</td></tr>`;
+        rowsHtml = `<tr><td colspan="9" class="p-8 text-center text-slate-400">พัสดุทุกรายการมีสต็อกเพียงพอ ไม่พบรายการที่ต้องสั่งซื้อด่วน</td></tr>`;
       }
 
       footHtml = `
@@ -1510,7 +1617,6 @@ async function generateReport() {
     tbody.innerHTML = rowsHtml;
     tfoot.innerHTML = footHtml;
 
-    // Save state for Excel export
     currentReportData.type = type;
     currentReportData.title = title;
   } catch (err) {
@@ -1530,10 +1636,6 @@ function updateReportKpis(kpi1Title, kpi1Val, kpi2Title, kpi2Val, kpi3Title, kpi
 function printReportA4() {
   window.print();
 }
-
-// ---------------------------------------------------------------------------
-// EXCEL EXPORT (USING SHEETJS / XLSX)
-// ---------------------------------------------------------------------------
 
 function exportCurrentReportToExcel() {
   const table = document.getElementById('reportOutputTable');
@@ -1569,7 +1671,7 @@ function exportInventoryToExcel() {
 function exportRequisitionsToExcel() {
   const flatData = [];
   state.requisitions.forEach(r => {
-    (r.items || []).forEach((item, idx) => {
+    (r.items || []).forEach(item => {
       flatData.push({
         "เลขที่ใบเบิก": r.id,
         "วันที่": r.date,
@@ -1619,11 +1721,10 @@ function exportStockInsToExcel() {
 }
 
 // ---------------------------------------------------------------------------
-// TAB 6: SETTINGS & MASTER DATA
+// TAB 6: SETTINGS & USER MANAGEMENT (Admin)
 // ---------------------------------------------------------------------------
 
 function renderSettingsView() {
-  // Fill organization settings form
   const s = state.settings;
   if (s) {
     if (document.getElementById('setOrgName')) document.getElementById('setOrgName').value = s.orgName || '';
@@ -1663,6 +1764,100 @@ function renderSettingsView() {
         </button>
       </div>
     `).join('');
+  }
+
+  renderUsersTable();
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = (state.users || []).map(u => {
+    let roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">ผู้เบิกประจำแผนก</span>';
+    if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-white">ผู้ดูแลระบบ (Admin)</span>';
+    if (u.role === 'storekeeper') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">จนท.ห้องพัสดุ (Storekeeper)</span>';
+
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="p-3 font-mono font-bold text-slate-800">${u.username}</td>
+        <td class="p-3 font-medium text-slate-900">${u.fullName}</td>
+        <td class="p-3">${roleBadge}</td>
+        <td class="p-3 text-slate-600">${u.departmentName || '-'}</td>
+        <td class="p-3 text-slate-500 text-xs">${u.phone || '-'}</td>
+        <td class="p-3 text-center">
+          ${u.id === 'usr-admin' ? '<span class="text-slate-400 text-xs">หลัก</span>' : `
+            <button onclick="deleteUser('${u.id}')" title="ลบผู้ใช้" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition inline-flex items-center justify-center text-xs">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openUserModal() {
+  const modal = document.getElementById('userModal');
+  const deptSelect = document.getElementById('userDepartmentId');
+
+  deptSelect.innerHTML = state.departments.map(d => `
+    <option value="${d.id}">${d.name}</option>
+  `).join('');
+
+  document.getElementById('userForm').reset();
+  document.getElementById('userId').value = '';
+  modal.classList.remove('hidden');
+}
+
+async function handleUserFormSubmit(e) {
+  e.preventDefault();
+  const payload = {
+    username: document.getElementById('userUsername').value.trim(),
+    password: document.getElementById('userPassword').value,
+    fullName: document.getElementById('userFullName').value.trim(),
+    role: document.getElementById('userRole').value,
+    departmentId: document.getElementById('userDepartmentId').value,
+    phone: document.getElementById('userPhone').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    closeModal('userModal');
+    Swal.fire('สำเร็จ', 'สร้างบัญชีผู้ใช้งานเรียบร้อยแล้ว', 'success');
+    await fetchUsers();
+  } catch (err) {
+    Swal.fire('ข้อผิดพลาด', err.message, 'error');
+  }
+}
+
+async function deleteUser(id) {
+  const result = await Swal.fire({
+    title: 'ยืนยันลบผู้ใช้งานนี้?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'ใช่, ลบ',
+    cancelButtonText: 'ยกเลิก'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+
+      Swal.fire('สำเร็จ', 'ลบผู้ใช้เรียบร้อยแล้ว', 'success');
+      await fetchUsers();
+    } catch (err) {
+      Swal.fire('ข้อผิดพลาด', err.message, 'error');
+    }
   }
 }
 
@@ -1814,7 +2009,6 @@ async function deleteDepartment(id) {
   }
 }
 
-// Backup & Restore
 async function handleRestoreUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -1832,7 +2026,7 @@ async function handleRestoreUpload(e) {
       if (!resJson.success) throw new Error(resJson.message);
 
       Swal.fire('กู้คืนสำเร็จ', 'กู้คืนฐานข้อมูลสำรองเรียบร้อยแล้ว', 'success');
-      await loadAllData();
+      await initializeApp();
     } catch (err) {
       Swal.fire('เกิดข้อผิดพลาดในการกู้คืน', err.message, 'error');
     }
@@ -1840,33 +2034,138 @@ async function handleRestoreUpload(e) {
   reader.readAsText(file);
 }
 
-// ---------------------------------------------------------------------------
-// POPULATE ALL SELECT DROPDOWNS
-// ---------------------------------------------------------------------------
+// Item Modal logic
+function openItemModal(item = null) {
+  const modal = document.getElementById('itemModal');
+  const title = document.getElementById('itemModalTitle');
+  const catSelect = document.getElementById('itemCategoryId');
+
+  catSelect.innerHTML = state.categories.map(c => `
+    <option value="${c.id}">${c.name}</option>
+  `).join('');
+
+  if (item) {
+    title.textContent = 'แก้ไขรายการอุปกรณ์';
+    document.getElementById('itemId').value = item.id;
+    document.getElementById('itemCode').value = item.code || '';
+    document.getElementById('itemName').value = item.name || '';
+    document.getElementById('itemCategoryId').value = item.categoryId || '';
+    document.getElementById('itemUnit').value = item.unit || '';
+    document.getElementById('itemCurrentStock').value = item.currentStock || 0;
+    document.getElementById('itemMinStock').value = item.minStock || 5;
+    document.getElementById('itemUnitPrice').value = item.unitPrice || 0;
+    document.getElementById('itemLocation').value = item.location || '';
+    document.getElementById('itemDescription').value = item.description || '';
+  } else {
+    title.textContent = 'เพิ่มรายการอุปกรณ์ใหม่';
+    document.getElementById('itemForm').reset();
+    document.getElementById('itemId').value = '';
+    const nextNum = state.items.length + 1;
+    document.getElementById('itemCode').value = `OFF-${String(nextNum).padStart(3, '0')}`;
+    document.getElementById('itemMinStock').value = state.settings.lowStockThresholdDefault || 5;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+async function handleItemFormSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('itemId').value;
+  const payload = {
+    code: document.getElementById('itemCode').value.trim(),
+    name: document.getElementById('itemName').value.trim(),
+    categoryId: document.getElementById('itemCategoryId').value,
+    unit: document.getElementById('itemUnit').value.trim(),
+    currentStock: Number(document.getElementById('itemCurrentStock').value) || 0,
+    minStock: Number(document.getElementById('itemMinStock').value) || 5,
+    unitPrice: Number(document.getElementById('itemUnitPrice').value) || 0,
+    location: document.getElementById('itemLocation').value.trim(),
+    description: document.getElementById('itemDescription').value.trim()
+  };
+
+  try {
+    let res;
+    if (id) {
+      res = await fetch(`/api/items/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    closeModal('itemModal');
+    Swal.fire({ icon: 'success', title: json.message || 'บันทึกสำเร็จ', timer: 1500, showConfirmButton: false });
+
+    await fetchItems();
+    if (state.currentUser.role !== 'department') renderDashboard();
+  } catch (err) {
+    Swal.fire('ข้อผิดพลาด', err.message, 'error');
+  }
+}
+
+function editItem(id) {
+  const item = state.items.find(i => i.id === id);
+  if (item) openItemModal(item);
+}
+
+async function deleteItem(id) {
+  const item = state.items.find(i => i.id === id);
+  if (!item) return;
+
+  const result = await Swal.fire({
+    title: 'ยืนยันการลบรายการ?',
+    text: `ต้องการลบ "${item.name}" ออกจากระบบหรือไม่?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'ใช่, ลบรายการนี้',
+    cancelButtonText: 'ยกเลิก'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+
+      Swal.fire('ลบสำเร็จ', 'ลบรายการอุปกรณ์เรียบร้อยแล้ว', 'success');
+      await fetchItems();
+      if (state.currentUser.role !== 'department') renderDashboard();
+    } catch (err) {
+      Swal.fire('ไม่สามารถลบได้', err.message, 'error');
+    }
+  }
+}
 
 function populateDropdowns() {
-  // Category filter in inventory tab
   const invCat = document.getElementById('inventoryCategoryFilter');
   if (invCat) {
     invCat.innerHTML = `<option value="all">ทุกหมวดหมู่</option>` +
       state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   }
 
-  // Category filter in reports tab
   const repCat = document.getElementById('reportCategoryFilter');
   if (repCat) {
     repCat.innerHTML = `<option value="all">ทุกหมวดหมู่</option>` +
       state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   }
 
-  // Department filter in requisitions tab
   const reqDept = document.getElementById('reqDeptFilter');
   if (reqDept) {
     reqDept.innerHTML = `<option value="all">ทุกแผนก/ฝ่าย</option>` +
       state.departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   }
 
-  // Department filter in reports tab
   const repDept = document.getElementById('reportDeptFilter');
   if (repDept) {
     repDept.innerHTML = `<option value="all">ทุกแผนก/ฝ่าย</option>` +
@@ -1874,9 +2173,7 @@ function populateDropdowns() {
   }
 }
 
-// Helper: Close any modal
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.add('hidden');
 }
-

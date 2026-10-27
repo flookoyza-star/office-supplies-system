@@ -27,7 +27,7 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Initial seed data with comprehensive Thai office supplies
+// Initial seed data with comprehensive Thai office supplies and user roles
 const initialData = {
   settings: {
     orgName: 'บริษัท สยาม ซินเนอร์จี้ จำกัด (สำนักงานใหญ่)',
@@ -37,6 +37,68 @@ const initialData = {
     currencySymbol: '฿',
     lowStockThresholdDefault: 5
   },
+  users: [
+    {
+      id: 'usr-admin',
+      username: 'admin',
+      password: 'admin123',
+      fullName: 'ผู้ดูแลระบบสูงสุด (System Admin)',
+      role: 'admin', // admin: เข้าถึงได้ทุกฟังก์ชัน
+      departmentId: 'dept-admin',
+      departmentName: 'ฝ่ายบริหารและธุรการทั่วไป',
+      phone: '02-888-9999'
+    },
+    {
+      id: 'usr-store',
+      username: 'store',
+      password: 'store123',
+      fullName: 'นายประสิทธิ์ สุขสมบูรณ์',
+      role: 'storekeeper', // storekeeper: เจ้าหน้าที่ห้องพัสดุ (รับเข้าสต็อก + ตรวจใบเซ็นและจ่ายของ)
+      departmentId: 'dept-admin',
+      departmentName: 'แผนกคลังพัสดุและจัดเก็บ',
+      phone: '081-999-8877'
+    },
+    {
+      id: 'usr-sales',
+      username: 'sales',
+      password: '1234',
+      fullName: 'นายสมเกียรติ สิทธิพร',
+      role: 'department', // department: ผู้ขอเบิกประจำแผนก
+      departmentId: 'dept-sales',
+      departmentName: 'ฝ่ายขายและการตลาด',
+      phone: '089-111-2222'
+    },
+    {
+      id: 'usr-acc',
+      username: 'account',
+      password: '1234',
+      fullName: 'นางสาวศศิธร สุวรรณ',
+      role: 'department',
+      departmentId: 'dept-acc',
+      departmentName: 'ฝ่ายบัญชีและการเงิน',
+      phone: '089-333-4444'
+    },
+    {
+      id: 'usr-hr',
+      username: 'hr',
+      password: '1234',
+      fullName: 'นางสาวจินตนา ภูมิดี',
+      role: 'department',
+      departmentId: 'dept-hr',
+      departmentName: 'ฝ่ายทรัพยากรบุคคล (HR)',
+      phone: '089-555-6666'
+    },
+    {
+      id: 'usr-it',
+      username: 'it',
+      password: '1234',
+      fullName: 'นายธนาธิป เจริญผล',
+      role: 'department',
+      departmentId: 'dept-it',
+      departmentName: 'ฝ่ายเทคโนโลยีสารสนเทศ (IT)',
+      phone: '089-777-8888'
+    }
+  ],
   categories: [
     { id: 'cat-paper', name: 'กระดาษและสิ่งพิมพ์', icon: 'fa-file-lines', color: 'blue' },
     { id: 'cat-pen', name: 'ปากกาและเครื่องเขียน', icon: 'fa-pen-nib', color: 'indigo' },
@@ -46,7 +108,7 @@ const initialData = {
     { id: 'cat-electronic', name: 'อุปกรณ์อิเล็กทรอนิกส์และถ่านไฟ', icon: 'fa-battery-three-quarters', color: 'rose' }
   ],
   departments: [
-    { id: 'dept-admin', name: 'ฝ่ายธุรการและบริหารทั่วไป', manager: 'คุณประสิทธิ์' },
+    { id: 'dept-admin', name: 'ฝ่ายธุรการและบริหารทั่วไป', manager: 'คุณประสิทธิ์ สุขสมบูรณ์' },
     { id: 'dept-hr', name: 'ฝ่ายทรัพยากรบุคคล (HR)', manager: 'คุณวิมลทิพย์' },
     { id: 'dept-acc', name: 'ฝ่ายบัญชีและการเงิน', manager: 'คุณสมศรี' },
     { id: 'dept-sales', name: 'ฝ่ายขายและการตลาด', manager: 'คุณวรวิทย์' },
@@ -308,7 +370,7 @@ const initialData = {
       date: '2025-10-15',
       poNumber: 'PO-6810-092',
       supplier: 'บริษัท ออฟฟิศเมท จำกัด (มหาชน)',
-      receiverName: 'นายประสิทธิ์ (ธุรการ)',
+      receiverName: 'นายประสิทธิ์ (เจ้าหน้าที่พัสดุ)',
       totalAmount: 11520.00,
       notes: 'รับพัสดุอุปกรณ์สำนักงานประจำไตรมาส 4',
       items: [
@@ -325,7 +387,7 @@ const initialData = {
       date: '2025-10-22',
       poNumber: 'PO-6810-105',
       supplier: 'บจก. ธนบุรี ซัพพลาย แอนด์ สเตชั่นเนอรี่',
-      receiverName: 'นางสาวกนกวรรณ (จัดซื้อ)',
+      receiverName: 'นายประสิทธิ์ (เจ้าหน้าที่พัสดุ)',
       totalAmount: 6450.00,
       notes: 'สั่งซื้อหมึกสำรองและแฟ้มเอกสารเพิ่ม',
       items: [
@@ -403,8 +465,8 @@ const initialData = {
       departmentId: 'dept-hr',
       departmentName: 'ฝ่ายทรัพยากรบุคคล (HR)',
       purpose: 'จัดเตรียมเอกสารการอบรมปฐมนิเทศพนักงานใหม่',
-      status: 'pending', // Waiting for dispatch
-      approverName: 'คุณวิมลทิพย์',
+      status: 'pending', // Waiting for Dept Manager signature or Storekeeper dispatch
+      approverName: '',
       dispatchedBy: '',
       dispatchedAt: null,
       totalEstimatedCost: 810.00,
@@ -433,6 +495,7 @@ function loadJsonDB() {
     const parsed = JSON.parse(raw);
     return {
       settings: parsed.settings || initialData.settings,
+      users: parsed.users || initialData.users,
       categories: parsed.categories || initialData.categories,
       departments: parsed.departments || initialData.departments,
       items: parsed.items || initialData.items,
@@ -541,7 +604,99 @@ const db = {
     return data.settings;
   },
 
-  // 2. Categories
+  // 2. Authentication & User Management
+  async authenticate(username, password) {
+    const data = await loadData();
+    const user = (data.users || []).find(
+      u => u.username.toLowerCase() === (username || '').trim().toLowerCase() && u.password === password
+    );
+    if (!user) return null;
+
+    // Return safe user object (exclude sensitive password)
+    const { password: _, ...safeUser } = user;
+    return safeUser;
+  },
+
+  async getUsers() {
+    const data = await loadData();
+    return (data.users || []).map(({ password: _, ...user }) => user);
+  },
+
+  async createUser(userData) {
+    const data = await loadData();
+    const existing = (data.users || []).find(
+      u => u.username.toLowerCase() === (userData.username || '').trim().toLowerCase()
+    );
+    if (existing) {
+      throw new Error(`ชื่อผู้ใช้ (Username) "${userData.username}" มีอยู่ในระบบแล้ว`);
+    }
+
+    const id = 'usr-' + Date.now();
+    let departmentName = userData.departmentName || '';
+    if (userData.departmentId) {
+      const dept = (data.departments || []).find(d => d.id === userData.departmentId);
+      if (dept) departmentName = dept.name;
+    }
+
+    const newUser = {
+      id,
+      username: userData.username.trim(),
+      password: userData.password || '1234',
+      fullName: userData.fullName.trim(),
+      role: userData.role || 'department', // 'admin', 'storekeeper', 'department'
+      departmentId: userData.departmentId || '',
+      departmentName: departmentName,
+      phone: userData.phone || '',
+      createdAt: new Date().toISOString()
+    };
+
+    if (!data.users) data.users = [];
+    data.users.push(newUser);
+    await saveData(data);
+
+    const { password: _, ...safeUser } = newUser;
+    return safeUser;
+  },
+
+  async updateUser(id, updateData) {
+    const data = await loadData();
+    const idx = (data.users || []).findIndex(u => u.id === id);
+    if (idx === -1) throw new Error('ไม่พบข้อมูลผู้ใช้นี้');
+
+    if (updateData.departmentId) {
+      const dept = (data.departments || []).find(d => d.id === updateData.departmentId);
+      if (dept) updateData.departmentName = dept.name;
+    }
+
+    const updatedUser = {
+      ...data.users[idx],
+      ...updateData,
+      updatedAt: new Date().toISOString()
+    };
+
+    // If password not provided or blank, preserve existing password
+    if (!updateData.password) {
+      updatedUser.password = data.users[idx].password;
+    }
+
+    data.users[idx] = updatedUser;
+    await saveData(data);
+
+    const { password: _, ...safeUser } = updatedUser;
+    return safeUser;
+  },
+
+  async deleteUser(id) {
+    const data = await loadData();
+    if (id === 'usr-admin') {
+      throw new Error('ไม่สามารถลบบัญชีผู้ดูแลระบบหลัก (Admin) ได้');
+    }
+    data.users = (data.users || []).filter(u => u.id !== id);
+    await saveData(data);
+    return true;
+  },
+
+  // 3. Categories
   async getCategories() {
     const data = await loadData();
     return data.categories || [];
@@ -563,7 +718,6 @@ const db = {
 
   async deleteCategory(id) {
     const data = await loadData();
-    // Check if items are using this category
     const hasItems = data.items.some(i => i.categoryId === id);
     if (hasItems) {
       throw new Error('ไม่สามารถลบหมวดหมู่นี้ได้เนื่องจากยังมีรายการอุปกรณ์อยู่ในหมวดนี้');
@@ -573,7 +727,7 @@ const db = {
     return true;
   },
 
-  // 3. Departments
+  // 4. Departments
   async getDepartments() {
     const data = await loadData();
     return data.departments || [];
@@ -599,7 +753,7 @@ const db = {
     return true;
   },
 
-  // 4. Items (Inventory)
+  // 5. Items (Inventory)
   async getItems() {
     const data = await loadData();
     const categoriesMap = {};
@@ -671,7 +825,7 @@ const db = {
     return true;
   },
 
-  // 5. Stock In (การรับเข้าสต็อก)
+  // 6. Stock In (การรับเข้าสต็อก)
   async getStockIns() {
     const data = await loadData();
     return (data.stockIns || []).sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
@@ -687,7 +841,6 @@ const db = {
     let totalAmount = 0;
     const validatedItems = [];
 
-    // Map through items and adjust inventory stock
     for (const row of payload.items) {
       const qty = Number(row.quantity) || 0;
       const price = Number(row.unitPrice) || 0;
@@ -696,9 +849,7 @@ const db = {
 
       const itemIndex = data.items.findIndex(i => i.id === row.itemId);
       if (itemIndex !== -1) {
-        // Increase stock
         data.items[itemIndex].currentStock += qty;
-        // Update unitPrice if provided
         if (price > 0) {
           data.items[itemIndex].unitPrice = price;
         }
@@ -731,10 +882,14 @@ const db = {
     return record;
   },
 
-  // 6. Requisitions / Stock Out (การเบิกจ่ายพัสดุ)
-  async getRequisitions() {
+  // 7. Requisitions / Stock Out (การเบิกจ่ายพัสดุ)
+  async getRequisitions(filter = {}) {
     const data = await loadData();
-    return (data.requisitions || []).sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
+    let list = data.requisitions || [];
+    if (filter.departmentId) {
+      list = list.filter(r => r.departmentId === filter.departmentId);
+    }
+    return list.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
   },
 
   async getRequisitionById(id) {
@@ -749,14 +904,12 @@ const db = {
     const count = (data.requisitions || []).length + 1;
     const id = payload.id || `REQ-${year}-${String(count).padStart(3, '0')}`;
 
-    // Lookup department name
     const dept = (data.departments || []).find(d => d.id === payload.departmentId);
     const departmentName = dept ? dept.name : (payload.departmentName || 'ไม่ระบุ');
 
     let totalEstimatedCost = 0;
     const validatedItems = [];
 
-    // Check item existence and prices
     for (const row of payload.items) {
       const qty = Number(row.quantity) || 0;
       const target = data.items.find(i => i.id === row.itemId);
@@ -777,9 +930,8 @@ const db = {
       });
     }
 
-    const initialStatus = payload.status || 'pending'; // 'pending' or 'approved'
+    const initialStatus = payload.status || 'pending'; // 'pending' (รอเซ็น/รอจ่าย) or 'approved'
 
-    // If instantly approved/dispatched, deduct stock immediately
     if (initialStatus === 'approved') {
       for (const row of validatedItems) {
         const itemIdx = data.items.findIndex(i => i.id === row.itemId);
@@ -797,7 +949,7 @@ const db = {
       departmentName: departmentName,
       purpose: payload.purpose || 'ใช้งานประจำวัน',
       status: initialStatus,
-      approverName: payload.approverName || '',
+      approverName: payload.approverName || (dept ? dept.manager : ''),
       dispatchedBy: initialStatus === 'approved' ? (payload.dispatchedBy || 'เจ้าหน้าที่พัสดุ') : '',
       dispatchedAt: initialStatus === 'approved' ? new Date().toISOString() : null,
       totalEstimatedCost: Number(totalEstimatedCost.toFixed(2)),
@@ -854,7 +1006,6 @@ const db = {
     const data = await loadData();
     const req = data.requisitions.find(r => r.id === id);
     if (req && req.status === 'approved') {
-      // Restore stock if deleting an approved slip
       for (const row of req.items) {
         const itemIdx = data.items.findIndex(i => i.id === row.itemId);
         if (itemIdx !== -1) {
@@ -867,7 +1018,7 @@ const db = {
     return true;
   },
 
-  // 7. Dashboard Stats & Analytics
+  // 8. Dashboard Stats & Analytics
   async getDashboardStats() {
     const items = await this.getItems();
     const reqs = await this.getRequisitions();
@@ -883,10 +1034,8 @@ const db = {
     const pendingReqs = reqs.filter(r => r.status === 'pending');
     const approvedReqs = reqs.filter(r => r.status === 'approved');
 
-    // Total expense of approved requisitions
     const totalRequisitionValue = approvedReqs.reduce((sum, r) => sum + (r.totalEstimatedCost || 0), 0);
 
-    // Group requisitions by department
     const deptUsage = {};
     departments.forEach(d => { deptUsage[d.name] = { count: 0, amount: 0 }; });
 
@@ -897,7 +1046,6 @@ const db = {
       deptUsage[dName].amount += (r.totalEstimatedCost || 0);
     });
 
-    // Group items by category
     const catStock = {};
     categories.forEach(c => { catStock[c.name] = { count: 0, totalUnits: 0, value: 0 }; });
     items.forEach(i => {
@@ -934,20 +1082,18 @@ const db = {
     };
   },
 
-  // 8. Reports Filter
+  // 9. Reports Filter
   async getDetailedReports(filters = {}) {
     const items = await this.getItems();
     const reqs = await this.getRequisitions();
     const stockIns = await this.getStockIns();
 
-    const { startDate, endDate, categoryId, departmentId, type } = filters;
+    const { startDate, endDate, categoryId, departmentId } = filters;
 
-    // Filter stockIns
     let filteredIns = stockIns;
     if (startDate) filteredIns = filteredIns.filter(x => (x.date || x.createdAt) >= startDate);
     if (endDate) filteredIns = filteredIns.filter(x => (x.date || x.createdAt) <= endDate);
 
-    // Filter requisitions
     let filteredReqs = reqs;
     if (startDate) filteredReqs = filteredReqs.filter(x => (x.date || x.createdAt) >= startDate);
     if (endDate) filteredReqs = filteredReqs.filter(x => (x.date || x.createdAt) <= endDate);
@@ -955,7 +1101,6 @@ const db = {
       filteredReqs = filteredReqs.filter(x => x.departmentId === departmentId);
     }
 
-    // Filter items
     let filteredItems = items;
     if (categoryId && categoryId !== 'all') {
       filteredItems = filteredItems.filter(x => x.categoryId === categoryId);
@@ -968,7 +1113,7 @@ const db = {
     };
   },
 
-  // 9. Full Backup & Restore
+  // 10. Full Backup & Restore
   async exportBackup() {
     return await loadData();
   },
@@ -983,4 +1128,3 @@ const db = {
 };
 
 module.exports = db;
-

@@ -16,7 +16,65 @@ app.use(express.static(path.join(__dirname, 'public')));
 // REST API ENDPOINTS
 // ----------------------------------------------------
 
-// 1. Dashboard summary & metrics
+// 1. Authentication
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' });
+    }
+    const user = await db.authenticate(username, password);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+    }
+    res.json({ success: true, data: user, message: 'เข้าสู่ระบบสำเร็จ' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 2. User Management (Admin only)
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await db.getUsers();
+    res.json({ success: true, data: users });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const { username, password, fullName, role, departmentId, phone } = req.body;
+    if (!username || !fullName) {
+      return res.status(400).json({ success: false, message: 'กรุณาระบุชื่อผู้ใช้และชื่อ-นามสกุล' });
+    }
+    const created = await db.createUser({ username, password, fullName, role, departmentId, phone });
+    res.status(201).json({ success: true, data: created, message: 'สร้างบัญชีผู้ใช้งานสำเร็จ' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const updated = await db.updateUser(req.params.id, req.body);
+    res.json({ success: true, data: updated, message: 'อัปเดตข้อมูลผู้ใช้งานสำเร็จ' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    await db.deleteUser(req.params.id);
+    res.json({ success: true, message: 'ลบผู้ใช้งานเรียบร้อยแล้ว' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// 3. Dashboard summary & metrics
 app.get('/api/dashboard', async (req, res) => {
   try {
     const stats = await db.getDashboardStats();
@@ -27,7 +85,7 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
-// 2. Items / Inventory Management
+// 4. Items / Inventory Management
 app.get('/api/items', async (req, res) => {
   try {
     const items = await db.getItems();
@@ -78,7 +136,7 @@ app.delete('/api/items/:id', async (req, res) => {
   }
 });
 
-// 3. Categories
+// 5. Categories
 app.get('/api/categories', async (req, res) => {
   try {
     const cats = await db.getCategories();
@@ -107,7 +165,7 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
-// 4. Departments
+// 6. Departments
 app.get('/api/departments', async (req, res) => {
   try {
     const depts = await db.getDepartments();
@@ -136,7 +194,7 @@ app.delete('/api/departments/:id', async (req, res) => {
   }
 });
 
-// 5. Stock-in Transactions (การรับเข้า)
+// 7. Stock-in Transactions (การรับเข้า)
 app.get('/api/stock-in', async (req, res) => {
   try {
     const stockIns = await db.getStockIns();
@@ -159,10 +217,11 @@ app.post('/api/stock-in', async (req, res) => {
   }
 });
 
-// 6. Requisitions / Stock-out (การขอเบิก-จ่ายพัสดุ)
+// 8. Requisitions / Stock-out (การขอเบิก-จ่ายพัสดุ)
 app.get('/api/requisitions', async (req, res) => {
   try {
-    const reqs = await db.getRequisitions();
+    const { departmentId } = req.query;
+    const reqs = await db.getRequisitions(departmentId ? { departmentId } : {});
     res.json({ success: true, data: reqs });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -202,13 +261,17 @@ app.post('/api/requisitions', async (req, res) => {
   }
 });
 
-// Update status (e.g., Pending -> Approved / Dispatched, or Rejected)
+// Update status (e.g., Pending -> Approved / Dispatched with storekeeper signature, or Rejected)
 app.put('/api/requisitions/:id/status', async (req, res) => {
   try {
     const { status, approverName, dispatchedBy, notes } = req.body;
     if (!status) return res.status(400).json({ success: false, message: 'กรุณาระบุสถานะ' });
     const updated = await db.updateRequisitionStatus(req.params.id, status, { approverName, dispatchedBy, notes });
-    res.json({ success: true, data: updated, message: `อัปเดตสถานะเป็น "${status === 'approved' ? 'อนุมัติ/จ่ายของแล้ว' : status === 'rejected' ? 'ปฏิเสธ' : status}" เรียบร้อยแล้ว` });
+    res.json({
+      success: true,
+      data: updated,
+      message: `อัปเดตสถานะเป็น "${status === 'approved' ? 'อนุมัติ/จ่ายของแล้ว (ตัดสต็อกแล้ว)' : status === 'rejected' ? 'ปฏิเสธคำขอ' : status}" เรียบร้อยแล้ว`
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -223,7 +286,7 @@ app.delete('/api/requisitions/:id', async (req, res) => {
   }
 });
 
-// 7. Comprehensive Reports
+// 9. Comprehensive Reports
 app.get('/api/reports', async (req, res) => {
   try {
     const reports = await db.getDetailedReports(req.query);
@@ -233,7 +296,7 @@ app.get('/api/reports', async (req, res) => {
   }
 });
 
-// 8. Settings
+// 10. Settings
 app.get('/api/settings', async (req, res) => {
   try {
     const settings = await db.getSettings();
@@ -252,7 +315,7 @@ app.post('/api/settings', async (req, res) => {
   }
 });
 
-// 9. Backup & Restore Data
+// 11. Backup & Restore Data
 app.get('/api/backup/export', async (req, res) => {
   try {
     const data = await db.exportBackup();
@@ -279,10 +342,9 @@ db.init().then(() => {
     console.log(`====================================================`);
     console.log(`📦 Office Supplies Inventory & Requisition System`);
     console.log(`🚀 Server running on: http://localhost:${PORT}`);
-    console.log(`🌐 Ready for LAN / Local Network & Cloud Deployment`);
+    console.log(`🔐 Role-Based Access Control: Admin | Storekeeper | Department`);
     console.log(`====================================================`);
   });
 }).catch(err => {
   console.error('Failed to initialize database:', err);
 });
-
