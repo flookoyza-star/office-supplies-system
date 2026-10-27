@@ -875,7 +875,6 @@ function openRequisitionForSpecificItem(itemId) {
     handleReqItemChange(rowId);
   }
 }
-}
 
 function filterInventoryTable() {
   const search = (document.getElementById('inventorySearchInput').value || '').toLowerCase().trim();

@@ -9,7 +9,7 @@ echo =======================================================================
 echo.
 
 git add .
-git commit -m "Add responsive Card Views for Mobile and Tablet and Modern UI enhancements"
+git commit -m "Fix syntax error and enable responsive card views"
 echo.
 echo [*] กำลังส่งโค้ดขึ้น GitHub (git push -u origin main)...
 git push -u origin main
