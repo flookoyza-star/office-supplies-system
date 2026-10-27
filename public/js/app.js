@@ -186,12 +186,25 @@ function applyRolePermissions() {
   const btnExportReq = document.getElementById('btnReqExportExcel');
   const autoApproveContainer = document.getElementById('autoApproveToggleContainer');
 
+  // Mobile Bottom Navigation Buttons
+  const mobDashboard = document.getElementById('mobTabDashboard');
+  const mobStockIns = document.getElementById('mobTabStockIns');
+  const mobReports = document.getElementById('mobTabReports');
+  const mobSettings = document.getElementById('mobTabSettings');
+  const mobFabBtn = document.getElementById('mobileFabBtn');
+
   // Department User Permissions
   if (role === 'department') {
     tabDashboard.classList.add('hidden');
     tabStockIns.classList.add('hidden');
     tabReports.classList.add('hidden');
     tabSettings.classList.add('hidden');
+
+    if (mobDashboard) mobDashboard.classList.add('hidden');
+    if (mobStockIns) mobStockIns.classList.add('hidden');
+    if (mobReports) mobReports.classList.add('hidden');
+    if (mobSettings) mobSettings.classList.add('hidden');
+    if (mobFabBtn) mobFabBtn.classList.remove('hidden');
 
     if (deptBanner) {
       deptBanner.classList.remove('hidden');
@@ -220,6 +233,12 @@ function applyRolePermissions() {
     tabReports.classList.add('hidden');
     tabSettings.classList.add('hidden');
 
+    if (mobDashboard) mobDashboard.classList.remove('hidden');
+    if (mobStockIns) mobStockIns.classList.remove('hidden');
+    if (mobReports) mobReports.classList.add('hidden');
+    if (mobSettings) mobSettings.classList.add('hidden');
+    if (mobFabBtn) mobFabBtn.classList.add('hidden');
+
     if (deptBanner) deptBanner.classList.add('hidden');
     if (btnStockIn) btnStockIn.classList.remove('hidden');
     if (btnAddItem) btnAddItem.classList.remove('hidden');
@@ -240,6 +259,12 @@ function applyRolePermissions() {
     tabStockIns.classList.remove('hidden');
     tabReports.classList.remove('hidden');
     tabSettings.classList.remove('hidden');
+
+    if (mobDashboard) mobDashboard.classList.remove('hidden');
+    if (mobStockIns) mobStockIns.classList.remove('hidden');
+    if (mobReports) mobReports.classList.remove('hidden');
+    if (mobSettings) mobSettings.classList.remove('hidden');
+    if (mobFabBtn) mobFabBtn.classList.remove('hidden');
 
     if (deptBanner) deptBanner.classList.add('hidden');
     if (btnStockIn) btnStockIn.classList.remove('hidden');
@@ -342,11 +367,21 @@ function switchTab(tabId) {
     target.classList.add('fade-in');
   }
 
+  // Update Desktop / Tablet Tab navigation
   document.querySelectorAll('#mainTabNav .tab-btn').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.className = 'tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-blue-600 bg-blue-50/70 border-b-2 border-blue-600 flex items-center gap-2 whitespace-nowrap';
     } else {
       btn.className = 'tab-btn px-3 py-2 text-xs sm:text-sm font-medium rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center gap-2 whitespace-nowrap';
+    }
+  });
+
+  // Update Mobile Bottom Bar active highlight
+  document.querySelectorAll('#mobileBottomNav .mobile-nav-btn').forEach(btn => {
+    if (btn.getAttribute('data-tab') === tabId) {
+      btn.className = 'mobile-nav-btn flex flex-col items-center justify-center p-1 text-blue-600 font-bold transition scale-105';
+    } else {
+      btn.className = 'mobile-nav-btn flex flex-col items-center justify-center p-1 text-slate-500 hover:text-blue-600 transition';
     }
   });
 
@@ -390,12 +425,21 @@ async function renderDashboard() {
     }
 
     const pendingBadge = document.getElementById('pendingReqNavBadge');
+    const mobReqBadge = document.getElementById('mobReqBadge');
     if (pendingBadge) {
       if (summary.pendingRequisitionCount > 0) {
         pendingBadge.textContent = summary.pendingRequisitionCount;
         pendingBadge.classList.remove('hidden');
       } else {
         pendingBadge.classList.add('hidden');
+      }
+    }
+    if (mobReqBadge) {
+      if (summary.pendingRequisitionCount > 0) {
+        mobReqBadge.textContent = summary.pendingRequisitionCount;
+        mobReqBadge.classList.remove('hidden');
+      } else {
+        mobReqBadge.classList.add('hidden');
       }
     }
 
@@ -650,6 +694,27 @@ function renderRequisitionsTable(reqsToRender = null) {
   const reqs = reqsToRender || state.requisitions;
   const tbody = document.getElementById('requisitionTableBody');
   if (!tbody) return;
+
+  // Update pending badge count
+  const pendingCount = (state.requisitions || []).filter(r => r.status === 'pending').length;
+  const pBadge = document.getElementById('pendingReqNavBadge');
+  const mobBadge = document.getElementById('mobReqBadge');
+  if (pBadge) {
+    if (pendingCount > 0) {
+      pBadge.textContent = pendingCount;
+      pBadge.classList.remove('hidden');
+    } else {
+      pBadge.classList.add('hidden');
+    }
+  }
+  if (mobBadge) {
+    if (pendingCount > 0) {
+      mobBadge.textContent = pendingCount;
+      mobBadge.classList.remove('hidden');
+    } else {
+      mobBadge.classList.add('hidden');
+    }
+  }
 
   const isStorekeeper = state.currentUser && (state.currentUser.role === 'storekeeper' || state.currentUser.role === 'admin');
 
