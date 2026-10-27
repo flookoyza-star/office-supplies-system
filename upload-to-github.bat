@@ -9,7 +9,7 @@ echo =======================================================================
 echo.
 
 git add .
-git commit -m "Update Office Supplies System with Admin and Department Roles"
+git commit -m "Add responsive Card Views for Mobile and Tablet and Modern UI enhancements"
 echo.
 echo [*] กำลังส่งโค้ดขึ้น GitHub (git push -u origin main)...
 git push -u origin main

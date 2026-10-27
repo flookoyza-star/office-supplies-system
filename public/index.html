@@ -301,7 +301,7 @@
         </div>
       </div>
 
-      <!-- Tables Row -->
+      <!-- Tables / Cards Row -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div class="p-3.5 sm:p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -312,7 +312,8 @@
               ดูทั้งหมด
             </button>
           </div>
-          <div class="overflow-x-auto table-responsive">
+          <!-- Desktop Table -->
+          <div class="hidden sm:block overflow-x-auto table-responsive">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-50 text-slate-500 border-b border-slate-100 font-medium">
                 <tr>
@@ -325,6 +326,8 @@
               <tbody id="dashLowStockTable" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
+          <!-- Mobile Cards Container -->
+          <div id="dashLowStockCards" class="block sm:hidden divide-y divide-slate-100 p-2 space-y-2"></div>
         </div>
 
         <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
@@ -336,7 +339,8 @@
               ดูทั้งหมด
             </button>
           </div>
-          <div class="overflow-x-auto table-responsive">
+          <!-- Desktop Table -->
+          <div class="hidden sm:block overflow-x-auto table-responsive">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-50 text-slate-500 border-b border-slate-100 font-medium">
                 <tr>
@@ -349,6 +353,8 @@
               <tbody id="dashRecentReqsTable" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
+          <!-- Mobile Cards Container -->
+          <div id="dashRecentReqsCards" class="block sm:hidden divide-y divide-slate-100 p-2 space-y-2"></div>
         </div>
       </div>
     </div>
@@ -376,18 +382,31 @@
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <button id="btnInventoryExportExcel" onclick="exportInventoryToExcel()" class="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-file-excel"></i> Excel
+        <div class="flex items-center gap-2">
+          <!-- View Switcher (Cards vs Table) -->
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button id="btnInvViewCards" onclick="setInventoryViewMode('card')" title="แสดงแบบการ์ด (เหมาะกับมือถือและแท็บเล็ต ไม่ต้องเลื่อนจอ)" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-blue-600 bg-white shadow-xs">
+              <i class="fa-solid fa-grip"></i> <span class="hidden sm:inline">การ์ด</span>
+            </button>
+            <button id="btnInvViewTable" onclick="setInventoryViewMode('table')" title="แสดงแบบตาราง" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-slate-500 hover:text-slate-800">
+              <i class="fa-solid fa-table-list"></i> <span class="hidden sm:inline">ตาราง</span>
+            </button>
+          </div>
+
+          <button id="btnInventoryExportExcel" onclick="exportInventoryToExcel()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">Excel</span>
           </button>
-          <button id="btnAddNewItem" onclick="openItemModal()" class="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-plus"></i> เพิ่มพัสดุ
+          <button id="btnAddNewItem" onclick="openItemModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-plus"></i> <span class="hidden sm:inline">เพิ่มพัสดุ</span>
           </button>
         </div>
       </div>
 
-      <!-- Items Table Container with touch scrolling -->
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <!-- Card View Container (Responsive Grid: 1 col on mobile, 2 on tablet, 3-4 on desktop) -->
+      <div id="inventoryCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5"></div>
+
+      <!-- Table View Container -->
+      <div id="inventoryTableContainer" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div class="overflow-x-auto table-responsive">
           <table class="w-full text-left text-xs sm:text-sm" id="inventoryMainTable">
             <thead class="bg-slate-100/80 text-slate-600 border-b border-slate-200 font-semibold text-[11px] sm:text-xs">
@@ -407,10 +426,12 @@
             <tbody id="inventoryTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
           </table>
         </div>
-        <div class="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
-          <span id="inventoryRowCountText">แสดง 0 รายการ</span>
-          <span id="inventoryTotalValuationText" class="font-semibold text-slate-700 col-price">มูลค่ารวม: ฿0.00</span>
-        </div>
+      </div>
+
+      <!-- Inventory Footer -->
+      <div class="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs text-xs text-slate-500 flex justify-between items-center">
+        <span id="inventoryRowCountText">แสดง 0 รายการ</span>
+        <span id="inventoryTotalValuationText" class="font-semibold text-slate-700 col-price">มูลค่ารวม: ฿0.00</span>
       </div>
     </div>
 
@@ -437,18 +458,31 @@
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <button id="btnReqExportExcel" onclick="exportRequisitionsToExcel()" class="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-file-excel"></i> Excel
+        <div class="flex items-center gap-2">
+          <!-- View Switcher -->
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button id="btnReqViewCards" onclick="setRequisitionsViewMode('card')" title="แสดงแบบการ์ด (เหมาะกับมือถือและแท็บเล็ต)" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-blue-600 bg-white shadow-xs">
+              <i class="fa-solid fa-grip"></i> <span class="hidden sm:inline">การ์ด</span>
+            </button>
+            <button id="btnReqViewTable" onclick="setRequisitionsViewMode('table')" title="แสดงแบบตาราง" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-slate-500 hover:text-slate-800">
+              <i class="fa-solid fa-table-list"></i> <span class="hidden sm:inline">ตาราง</span>
+            </button>
+          </div>
+
+          <button id="btnReqExportExcel" onclick="exportRequisitionsToExcel()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">Excel</span>
           </button>
-          <button onclick="openRequisitionModal()" class="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-file-signature"></i> สร้างใบขอเบิก
+          <button onclick="openRequisitionModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-file-signature"></i> <span class="hidden sm:inline">สร้างใบขอเบิก</span>
           </button>
         </div>
       </div>
 
-      <!-- Requisitions Table -->
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <!-- Card View Container -->
+      <div id="requisitionCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+
+      <!-- Table View Container -->
+      <div id="requisitionTableContainer" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div class="overflow-x-auto table-responsive">
           <table class="w-full text-left text-xs sm:text-sm" id="requisitionMainTable">
             <thead class="bg-slate-100/80 text-slate-600 border-b border-slate-200 font-semibold text-[11px] sm:text-xs">
@@ -468,6 +502,10 @@
           </table>
         </div>
       </div>
+
+      <div class="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs text-xs text-slate-500 flex justify-between items-center">
+        <span id="reqRowCountText">แสดง 0 รายการ</span>
+      </div>
     </div>
 
     <!-- ========================================================================= -->
@@ -481,17 +519,31 @@
             <input type="text" id="stockInSearchInput" onkeyup="filterStockInTable()" placeholder="ค้นหาเลขที่รับ, PO, ผู้จัดจำหน่าย..." class="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
         </div>
-        <div class="flex gap-2">
-          <button onclick="exportStockInsToExcel()" class="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-file-excel"></i> Excel
+        <div class="flex items-center gap-2">
+          <!-- View Switcher -->
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button id="btnStockInViewCards" onclick="setStockInsViewMode('card')" title="แสดงแบบการ์ด (เหมาะกับมือถือและแท็บเล็ต)" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-blue-600 bg-white shadow-xs">
+              <i class="fa-solid fa-grip"></i> <span class="hidden sm:inline">การ์ด</span>
+            </button>
+            <button id="btnStockInViewTable" onclick="setStockInsViewMode('table')" title="แสดงแบบตาราง" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-slate-500 hover:text-slate-800">
+              <i class="fa-solid fa-table-list"></i> <span class="hidden sm:inline">ตาราง</span>
+            </button>
+          </div>
+
+          <button onclick="exportStockInsToExcel()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs sm:text-sm font-medium transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-file-excel"></i> <span class="hidden sm:inline">Excel</span>
           </button>
-          <button onclick="openStockInModal()" class="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
-            <i class="fa-solid fa-dolly"></i> บันทึกรับเข้า
+          <button onclick="openStockInModal()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium shadow-sm transition inline-flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-dolly"></i> <span class="hidden sm:inline">บันทึกรับเข้า</span>
           </button>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <!-- Card View Container -->
+      <div id="stockInCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+
+      <!-- Table View Container -->
+      <div id="stockInTableContainer" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div class="overflow-x-auto table-responsive">
           <table class="w-full text-left text-xs sm:text-sm" id="stockInMainTable">
             <thead class="bg-slate-100/80 text-slate-600 border-b border-slate-200 font-semibold text-[11px] sm:text-xs">
@@ -509,6 +561,10 @@
             <tbody id="stockInTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-xs text-xs text-slate-500 flex justify-between items-center">
+        <span id="stockInRowCountText">แสดง 0 รายการ</span>
       </div>
     </div>
 
@@ -629,7 +685,9 @@
           </button>
         </div>
 
-        <div class="overflow-x-auto table-responsive">
+        <div id="usersCardsContainer" class="block sm:hidden grid grid-cols-1 gap-2.5"></div>
+
+        <div class="hidden sm:block overflow-x-auto table-responsive">
           <table class="w-full text-left text-xs sm:text-sm">
             <thead class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold text-[11px] sm:text-xs">
               <tr>

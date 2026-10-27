@@ -15,11 +15,52 @@ const state = {
   stockIns: [],
   currentTab: 'inventory',
   selectedRequisition: null,
+  viewModes: {
+    inventory: window.innerWidth < 1024 ? 'card' : 'table',
+    requisitions: window.innerWidth < 1024 ? 'card' : 'table',
+    stockIns: window.innerWidth < 1024 ? 'card' : 'table'
+  },
   charts: {
     deptChart: null,
     catChart: null
   }
 };
+
+// ---------------------------------------------------------------------------
+// VIEW MODE SWITCHERS (Card View vs Table View)
+// ---------------------------------------------------------------------------
+
+function setInventoryViewMode(mode) {
+  state.viewModes.inventory = mode;
+  updateViewModeButtons('Inv', mode);
+  renderInventoryTable();
+}
+
+function setRequisitionsViewMode(mode) {
+  state.viewModes.requisitions = mode;
+  updateViewModeButtons('Req', mode);
+  renderRequisitionsTable();
+}
+
+function setStockInsViewMode(mode) {
+  state.viewModes.stockIns = mode;
+  updateViewModeButtons('StockIn', mode);
+  renderStockInsTable();
+}
+
+function updateViewModeButtons(prefix, mode) {
+  const btnCards = document.getElementById(`btn${prefix}ViewCards`);
+  const btnTable = document.getElementById(`btn${prefix}ViewTable`);
+  if (!btnCards || !btnTable) return;
+
+  if (mode === 'card') {
+    btnCards.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-blue-600 bg-white shadow-xs';
+    btnTable.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-slate-500 hover:text-slate-800';
+  } else {
+    btnCards.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-slate-500 hover:text-slate-800';
+    btnTable.className = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 text-blue-600 bg-white shadow-xs';
+  }
+}
 
 // ---------------------------------------------------------------------------
 // INITIALIZATION & AUTHENTICATION
@@ -451,61 +492,112 @@ async function renderDashboard() {
       alertBanner.classList.add('hidden');
     }
 
-    // Low stock quick table
+    // Low stock quick table & mobile cards
     const lowTable = document.getElementById('dashLowStockTable');
+    const lowCards = document.getElementById('dashLowStockCards');
     if (lowStockList.length === 0) {
-      lowTable.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">สต็อกอุปกรณ์ทั้งหมดอยู่ในระดับปกติ ไม่มีของใกล้หมด</td></tr>`;
+      if (lowTable) lowTable.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">สต็อกอุปกรณ์ทั้งหมดอยู่ในระดับปกติ ไม่มีของใกล้หมด</td></tr>`;
+      if (lowCards) lowCards.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">สต็อกอุปกรณ์ทั้งหมดอยู่ในระดับปกติ ไม่มีของใกล้หมด</div>`;
     } else {
-      lowTable.innerHTML = lowStockList.slice(0, 5).map(item => `
-        <tr class="hover:bg-slate-50 transition">
-          <td class="p-3">
-            <div class="font-medium text-slate-800">${item.name}</div>
-            <div class="text-[11px] text-slate-400 font-mono">${item.code}</div>
-          </td>
-          <td class="p-3 text-center">
-            <span class="px-2 py-0.5 rounded font-bold ${item.currentStock <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">
-              ${item.currentStock} ${item.unit}
-            </span>
-          </td>
-          <td class="p-3 text-center text-slate-500">${item.minStock} ${item.unit}</td>
-          <td class="p-3 text-right">
-            <button onclick="openStockInForSpecificItem('${item.id}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition">
-              <i class="fa-solid fa-plus"></i> สั่งเข้า
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    // Recent Requisitions Table
-    const recentTable = document.getElementById('dashRecentReqsTable');
-    if (recentRequisitions.length === 0) {
-      recentTable.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">ยังไม่มีประวัติการเบิกพัสดุ</td></tr>`;
-    } else {
-      recentTable.innerHTML = recentRequisitions.map(req => {
-        let statusBadge = '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">รอเบิก</span>';
-        if (req.status === 'approved') statusBadge = '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">จ่ายแล้ว</span>';
-        if (req.status === 'rejected') statusBadge = '<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-medium">ปฏิเสธ</span>';
-
-        return `
+      if (lowTable) {
+        lowTable.innerHTML = lowStockList.slice(0, 5).map(item => `
           <tr class="hover:bg-slate-50 transition">
             <td class="p-3">
-              <div class="font-semibold text-blue-600">${req.id}</div>
-              <div class="text-[11px] text-slate-400">${req.date || '-'}</div>
+              <div class="font-medium text-slate-800">${item.name}</div>
+              <div class="text-[11px] text-slate-400 font-mono">${item.code}</div>
             </td>
-            <td class="p-3">
-              <div class="font-medium text-slate-800">${req.requisitioner}</div>
-              <div class="text-[11px] text-slate-500">${req.departmentName || '-'}</div>
+            <td class="p-3 text-center">
+              <span class="px-2 py-0.5 rounded font-bold ${item.currentStock <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">
+                ${item.currentStock} ${item.unit}
+              </span>
             </td>
-            <td class="p-3 text-center">${statusBadge}</td>
+            <td class="p-3 text-center text-slate-500">${item.minStock} ${item.unit}</td>
             <td class="p-3 text-right">
-              <button onclick="viewRequisitionDetail('${req.id}')" class="text-blue-600 hover:text-blue-800 font-medium text-xs">
-                ดูใบเบิก
+              <button onclick="openStockInForSpecificItem('${item.id}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition">
+                <i class="fa-solid fa-plus"></i> สั่งเข้า
               </button>
             </td>
           </tr>
-        `;
-      }).join('');
+        `).join('');
+      }
+
+      if (lowCards) {
+        lowCards.innerHTML = lowStockList.slice(0, 5).map(item => `
+          <div class="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-2 shadow-2xs">
+            <div class="min-w-0">
+              <div class="font-bold text-slate-800 text-xs truncate">${item.name}</div>
+              <div class="text-[11px] text-slate-400 font-mono">${item.code} | จุดเตือน: ${item.minStock} ${item.unit}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold ${item.currentStock <= 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">
+                ${item.currentStock} ${item.unit}
+              </span>
+              <button onclick="openStockInForSpecificItem('${item.id}')" class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Recent Requisitions Table & mobile cards
+    const recentTable = document.getElementById('dashRecentReqsTable');
+    const recentCards = document.getElementById('dashRecentReqsCards');
+    if (recentRequisitions.length === 0) {
+      if (recentTable) recentTable.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">ยังไม่มีประวัติการเบิกพัสดุ</td></tr>`;
+      if (recentCards) recentCards.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">ยังไม่มีประวัติการเบิกพัสดุ</div>`;
+    } else {
+      if (recentTable) {
+        recentTable.innerHTML = recentRequisitions.map(req => {
+          let statusBadge = '<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">รอเบิก</span>';
+          if (req.status === 'approved') statusBadge = '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">จ่ายแล้ว</span>';
+          if (req.status === 'rejected') statusBadge = '<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-medium">ปฏิเสธ</span>';
+
+          return `
+            <tr class="hover:bg-slate-50 transition">
+              <td class="p-3">
+                <div class="font-semibold text-blue-600">${req.id}</div>
+                <div class="text-[11px] text-slate-400">${req.date || '-'}</div>
+              </td>
+              <td class="p-3">
+                <div class="font-medium text-slate-800">${req.requisitioner}</div>
+                <div class="text-[11px] text-slate-500">${req.departmentName || '-'}</div>
+              </td>
+              <td class="p-3 text-center">${statusBadge}</td>
+              <td class="p-3 text-right">
+                <button onclick="viewRequisitionDetail('${req.id}')" class="text-blue-600 hover:text-blue-800 font-medium text-xs">
+                  ดูใบเบิก
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      if (recentCards) {
+        recentCards.innerHTML = recentRequisitions.map(req => {
+          let statusBadge = '<span class="px-2 py-0.5 rounded text-[11px] bg-amber-100 text-amber-800 font-medium">รอเบิก</span>';
+          if (req.status === 'approved') statusBadge = '<span class="px-2 py-0.5 rounded text-[11px] bg-emerald-100 text-emerald-800 font-medium">จ่ายแล้ว</span>';
+          if (req.status === 'rejected') statusBadge = '<span class="px-2 py-0.5 rounded text-[11px] bg-rose-100 text-rose-800 font-medium">ปฏิเสธ</span>';
+
+          return `
+            <div class="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-2 shadow-2xs">
+              <div class="min-w-0">
+                <div class="font-bold text-blue-600 text-xs font-mono">${req.id}</div>
+                <div class="text-[11px] text-slate-700 font-medium truncate">${req.requisitioner} (${req.departmentName || '-'})</div>
+                <div class="text-[10px] text-slate-400">${req.date || '-'} | ฿${Number(req.totalEstimatedCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                ${statusBadge}
+                <button onclick="viewRequisitionDetail('${req.id}')" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
     }
 
     renderDeptUsageChart(deptUsage);
@@ -584,73 +676,205 @@ function renderCategoryStockChart(catStock) {
 function renderInventoryTable(itemsToRender = null) {
   const items = itemsToRender || state.items;
   const tbody = document.getElementById('inventoryTableBody');
-  if (!tbody) return;
+  const cardsContainer = document.getElementById('inventoryCardsContainer');
+  const tableContainer = document.getElementById('inventoryTableContainer');
 
   const isDepartmentUser = state.currentUser && state.currentUser.role === 'department';
+  const mode = state.viewModes.inventory || 'card';
 
-  if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400">ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่ค้นหา</td></tr>`;
-    document.getElementById('inventoryRowCountText').textContent = 'แสดง 0 รายการ';
-    return;
+  // Toggle visible container
+  if (mode === 'card') {
+    if (cardsContainer) cardsContainer.classList.remove('hidden');
+    if (tableContainer) tableContainer.classList.add('hidden');
+  } else {
+    if (cardsContainer) cardsContainer.classList.add('hidden');
+    if (tableContainer) tableContainer.classList.remove('hidden');
   }
+  updateViewModeButtons('Inv', mode);
 
   let totalValuation = 0;
 
-  tbody.innerHTML = items.map((item, index) => {
-    const val = Number(item.totalValue || (item.currentStock * item.unitPrice) || 0);
-    totalValuation += val;
+  // Render Table View (if tbody exists)
+  if (tbody) {
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-slate-400">ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่ค้นหา</td></tr>`;
+    } else {
+      tbody.innerHTML = items.map((item, index) => {
+        const val = Number(item.totalValue || (item.currentStock * item.unitPrice) || 0);
+        totalValuation += val;
 
-    let stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-800">${item.currentStock} ${item.unit}</span>`;
-    if (item.currentStock <= 0) {
-      stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-rose-100 text-rose-700 animate-pulse">หมดสต็อก</span>`;
-    } else if (item.currentStock <= item.minStock) {
-      stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800">⚠️ เหลือ ${item.currentStock} ${item.unit}</span>`;
+        let stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-slate-100 text-slate-800">${item.currentStock} ${item.unit}</span>`;
+        if (item.currentStock <= 0) {
+          stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-rose-100 text-rose-700 animate-pulse">หมดสต็อก</span>`;
+        } else if (item.currentStock <= item.minStock) {
+          stockBadge = `<span class="px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800">⚠️ เหลือ ${item.currentStock} ${item.unit}</span>`;
+        }
+
+        const priceCol = isDepartmentUser ? '' : `
+          <td class="p-3 text-center text-slate-500 font-medium col-minstock">${item.minStock} ${item.unit}</td>
+          <td class="p-3 text-right text-slate-700 col-price">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <td class="p-3 text-right font-semibold text-slate-900 col-price">฿${val.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+        `;
+
+        const actionCol = isDepartmentUser ? `
+          <td class="p-3 text-center">
+            <button onclick="openRequisitionForSpecificItem('${item.id}')" title="ขอเบิกรายการนี้" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition shadow-xs">
+              <i class="fa-solid fa-file-circle-plus"></i> ขอเบิก
+            </button>
+          </td>
+        ` : `
+          <td class="p-3 text-center col-admin-actions">
+            <div class="flex items-center justify-center gap-1.5">
+              <button onclick="editItem('${item.id}')" title="แก้ไข" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition flex items-center justify-center text-xs">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button onclick="deleteItem('${item.id}')" title="ลบรายการ" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition flex items-center justify-center text-xs">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </td>
+        `;
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-3 text-center text-slate-400">${index + 1}</td>
+            <td class="p-3 font-mono font-medium text-slate-700">${item.code || '-'}</td>
+            <td class="p-3">
+              <div class="font-semibold text-slate-900">${item.name}</div>
+              <div class="text-[11px] text-slate-500">${item.description || '-'}</div>
+            </td>
+            <td class="p-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                ${item.categoryName || 'ทั่วไป'}
+              </span>
+            </td>
+            <td class="p-3 text-center">${stockBadge}</td>
+            ${priceCol}
+            <td class="p-3 text-slate-600 text-xs">${item.location || '-'}</td>
+            ${actionCol}
+          </tr>
+        `;
+      }).join('');
     }
-
-    const priceCol = isDepartmentUser ? '' : `
-      <td class="p-3 text-center text-slate-500 font-medium col-minstock">${item.minStock} ${item.unit}</td>
-      <td class="p-3 text-right text-slate-700 col-price">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-      <td class="p-3 text-right font-semibold text-slate-900 col-price">฿${val.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-    `;
-
-    const actionCol = isDepartmentUser ? '' : `
-      <td class="p-3 text-center col-admin-actions">
-        <div class="flex items-center justify-center gap-1.5">
-          <button onclick="editItem('${item.id}')" title="แก้ไข" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-600 hover:text-blue-600 transition flex items-center justify-center text-xs">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-          <button onclick="deleteItem('${item.id}')" title="ลบรายการ" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition flex items-center justify-center text-xs">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
-        </div>
-      </td>
-    `;
-
-    return `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 text-center text-slate-400">${index + 1}</td>
-        <td class="p-3 font-mono font-medium text-slate-700">${item.code || '-'}</td>
-        <td class="p-3">
-          <div class="font-semibold text-slate-900">${item.name}</div>
-          <div class="text-[11px] text-slate-500">${item.description || '-'}</div>
-        </td>
-        <td class="p-3">
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-            ${item.categoryName || 'ทั่วไป'}
-          </span>
-        </td>
-        <td class="p-3 text-center">${stockBadge}</td>
-        ${priceCol}
-        <td class="p-3 text-slate-600 text-xs">${item.location || '-'}</td>
-        ${actionCol}
-      </tr>
-    `;
-  }).join('');
-
-  document.getElementById('inventoryRowCountText').textContent = `แสดง ${items.length} รายการ จากทั้งหมด ${state.items.length} รายการ`;
-  if (!isDepartmentUser) {
-    document.getElementById('inventoryTotalValuationText').textContent = `มูลค่ารวม: ฿${totalValuation.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
   }
+
+  // Render Card View (Responsive Grid: 1 col on mobile, 2 on tablet, 3-4 on desktop)
+  if (cardsContainer) {
+    if (items.length === 0) {
+      cardsContainer.innerHTML = `
+        <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
+          <i class="fa-solid fa-box-open text-3xl mb-2 text-slate-300"></i>
+          <p>ไม่พบรายการอุปกรณ์ตามเงื่อนไขที่ค้นหา</p>
+        </div>
+      `;
+    } else {
+      cardsContainer.innerHTML = items.map(item => {
+        const val = Number(item.totalValue || (item.currentStock * item.unitPrice) || 0);
+
+        let stockBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800">${item.currentStock} ${item.unit}</span>`;
+        let stockCardBorder = 'border-slate-200/90';
+        if (item.currentStock <= 0) {
+          stockBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 animate-pulse">หมดสต็อก</span>`;
+          stockCardBorder = 'border-rose-200 bg-rose-50/20';
+        } else if (item.currentStock <= item.minStock) {
+          stockBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">⚠️ เหลือ ${item.currentStock} ${item.unit}</span>`;
+          stockCardBorder = 'border-amber-200 bg-amber-50/10';
+        }
+
+        const priceSection = isDepartmentUser ? '' : `
+          <div class="col-price bg-slate-50 rounded-xl p-2.5 mb-3 flex justify-between items-center text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px]">ราคา/หน่วย</span>
+              <span class="font-semibold text-slate-700">฿${Number(item.unitPrice || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div class="text-center">
+              <span class="text-slate-400 block text-[10px]">จุดสั่งซื้อ</span>
+              <span class="font-medium text-slate-600">${item.minStock} ${item.unit}</span>
+            </div>
+            <div class="text-right">
+              <span class="text-slate-400 block text-[10px]">มูลค่าคงคลัง</span>
+              <span class="font-bold text-slate-900">฿${val.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        `;
+
+        let cardActions = '';
+        if (isDepartmentUser) {
+          cardActions = `
+            <button onclick="openRequisitionForSpecificItem('${item.id}')" class="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-xs">
+              <i class="fa-solid fa-file-circle-plus"></i> ขอเบิกรายการนี้
+            </button>
+          `;
+        } else {
+          cardActions = `
+            <div class="flex items-center justify-between gap-1.5 w-full">
+              <button onclick="openStockInForSpecificItem('${item.id}')" class="flex-1 py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition">
+                <i class="fa-solid fa-plus"></i> สั่งเข้า
+              </button>
+              <button onclick="editItem('${item.id}')" class="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition" title="แก้ไข">
+                <i class="fa-solid fa-pen"></i> แก้ไข
+              </button>
+              <button onclick="deleteItem('${item.id}')" class="w-8 h-8 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl text-xs flex items-center justify-center transition" title="ลบ">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-2xl border ${stockCardBorder} p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="font-mono text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">${item.code || '-'}</span>
+                ${stockBadge}
+              </div>
+
+              <h4 class="font-bold text-slate-900 text-sm leading-snug line-clamp-2 mb-1 group-hover:text-blue-600 transition">${item.name}</h4>
+              <p class="text-xs text-slate-500 line-clamp-2 mb-3 min-h-[1.5rem]">${item.description || 'ไม่มีรายละเอียดเพิ่มเติม'}</p>
+
+              <div class="flex flex-wrap items-center gap-1.5 mb-3 text-[11px]">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-medium">
+                  <i class="fa-solid fa-tag text-[10px]"></i> ${item.categoryName || 'ทั่วไป'}
+                </span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">
+                  <i class="fa-solid fa-location-dot text-[10px]"></i> ${item.location || 'คลังพัสดุ'}
+                </span>
+              </div>
+
+              ${priceSection}
+            </div>
+
+            <div class="pt-2.5 border-t border-slate-100 mt-1">
+              ${cardActions}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // Update summary footer
+  const rowCountEl = document.getElementById('inventoryRowCountText');
+  if (rowCountEl) rowCountEl.textContent = `แสดง ${items.length} รายการ จากทั้งหมด ${state.items.length} รายการ`;
+
+  const totalValEl = document.getElementById('inventoryTotalValuationText');
+  if (totalValEl && !isDepartmentUser) {
+    if (totalValuation === 0 && items.length > 0) {
+      totalValuation = items.reduce((sum, item) => sum + Number(item.totalValue || (item.currentStock * item.unitPrice) || 0), 0);
+    }
+    totalValEl.textContent = `มูลค่ารวม: ฿${totalValuation.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`;
+  }
+}
+
+function openRequisitionForSpecificItem(itemId) {
+  openRequisitionModal();
+  const select = document.querySelector('#requisitionRowsContainer .req-item-select');
+  if (select) {
+    select.value = itemId;
+    const rowId = select.closest('.grid').id;
+    handleReqItemChange(rowId);
+  }
+}
 }
 
 function filterInventoryTable() {
@@ -693,7 +917,20 @@ function filterByLowStock() {
 function renderRequisitionsTable(reqsToRender = null) {
   const reqs = reqsToRender || state.requisitions;
   const tbody = document.getElementById('requisitionTableBody');
-  if (!tbody) return;
+  const cardsContainer = document.getElementById('requisitionCardsContainer');
+  const tableContainer = document.getElementById('requisitionTableContainer');
+
+  const mode = state.viewModes.requisitions || 'card';
+
+  // Toggle visible container
+  if (mode === 'card') {
+    if (cardsContainer) cardsContainer.classList.remove('hidden');
+    if (tableContainer) tableContainer.classList.add('hidden');
+  } else {
+    if (cardsContainer) cardsContainer.classList.add('hidden');
+    if (tableContainer) tableContainer.classList.remove('hidden');
+  }
+  updateViewModeButtons('Req', mode);
 
   // Update pending badge count
   const pendingCount = (state.requisitions || []).filter(r => r.status === 'pending').length;
@@ -718,52 +955,131 @@ function renderRequisitionsTable(reqsToRender = null) {
 
   const isStorekeeper = state.currentUser && (state.currentUser.role === 'storekeeper' || state.currentUser.role === 'admin');
 
-  if (reqs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">ยังไม่มีรายการใบขอเบิกพัสดุ</td></tr>`;
-    return;
+  // Render Table View
+  if (tbody) {
+    if (reqs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" class="p-8 text-center text-slate-400">ยังไม่มีรายการใบขอเบิกพัสดุ</td></tr>`;
+    } else {
+      tbody.innerHTML = reqs.map(req => {
+        let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">รอหัวหน้าเซ็น / รอจ่าย</span>';
+        if (req.status === 'approved') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">อนุมัติ & จ่ายของแล้ว</span>';
+        if (req.status === 'rejected') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">ปฏิเสธคำขอ</span>';
+
+        const itemCount = (req.items || []).length;
+
+        let dispenseBtn = '';
+        if (isStorekeeper && req.status === 'pending') {
+          dispenseBtn = `
+            <button onclick="promptDispenseOrder('${req.id}')" title="ตรวจรับใบเซ็นและจ่ายของ" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs inline-flex items-center gap-1">
+              <i class="fa-solid fa-check"></i> จ่ายของ
+            </button>
+          `;
+        }
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-3 font-semibold text-blue-600 font-mono">${req.id}</td>
+            <td class="p-3 text-slate-600">${req.date || '-'}</td>
+            <td class="p-3 font-medium text-slate-900">${req.requisitioner}</td>
+            <td class="p-3 text-slate-600">${req.departmentName || '-'}</td>
+            <td class="p-3 text-slate-700 max-w-xs truncate">${req.purpose || '-'}</td>
+            <td class="p-3 text-center font-medium">${itemCount} รายการ</td>
+            <td class="p-3 text-right font-semibold text-slate-900">฿${Number(req.totalEstimatedCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td class="p-3 text-center">${statusBadge}</td>
+            <td class="p-3 text-center">
+              <div class="flex items-center justify-center gap-1.5">
+                ${dispenseBtn}
+                <a href="print-slip.html?id=${req.id}" target="_blank" title="พิมพ์ใบเบิกเพื่อให้หัวหน้าเซ็น" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1 transition shadow-xs">
+                  <i class="fa-solid fa-print"></i> พิมพ์ใบเบิก
+                </a>
+                <button onclick="viewRequisitionDetail('${req.id}')" title="ดูรายละเอียด" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-600 transition flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
   }
 
-  tbody.innerHTML = reqs.map(req => {
-    let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">รอหัวหน้าเซ็น / รอจ่าย</span>';
-    if (req.status === 'approved') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">อนุมัติ & จ่ายของแล้ว</span>';
-    if (req.status === 'rejected') statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">ปฏิเสธคำขอ</span>';
-
-    const itemCount = (req.items || []).length;
-
-    // Dispense Button for Storekeeper/Admin if pending
-    let dispenseBtn = '';
-    if (isStorekeeper && req.status === 'pending') {
-      dispenseBtn = `
-        <button onclick="promptDispenseOrder('${req.id}')" title="ตรวจรับใบเซ็นและจ่ายของ" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition shadow-xs inline-flex items-center gap-1">
-          <i class="fa-solid fa-check"></i> จ่ายของ
-        </button>
+  // Render Card View (Responsive Grid: 1 col on mobile, 2 on tablet, 3 on desktop)
+  if (cardsContainer) {
+    if (reqs.length === 0) {
+      cardsContainer.innerHTML = `
+        <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
+          <i class="fa-solid fa-file-circle-xmark text-3xl mb-2 text-slate-300"></i>
+          <p>ยังไม่มีรายการใบขอเบิกพัสดุ</p>
+        </div>
       `;
-    }
+    } else {
+      cardsContainer.innerHTML = reqs.map(req => {
+        let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">รอหัวหน้าเซ็น / รอจ่าย</span>';
+        let borderClass = 'border-slate-200/90';
+        if (req.status === 'approved') {
+          statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">อนุมัติ & จ่ายของแล้ว</span>';
+        } else if (req.status === 'rejected') {
+          statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">ปฏิเสธคำขอ</span>';
+          borderClass = 'border-rose-200 bg-rose-50/10';
+        }
 
-    return `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-semibold text-blue-600 font-mono">${req.id}</td>
-        <td class="p-3 text-slate-600">${req.date || '-'}</td>
-        <td class="p-3 font-medium text-slate-900">${req.requisitioner}</td>
-        <td class="p-3 text-slate-600">${req.departmentName || '-'}</td>
-        <td class="p-3 text-slate-700 max-w-xs truncate">${req.purpose || '-'}</td>
-        <td class="p-3 text-center font-medium">${itemCount} รายการ</td>
-        <td class="p-3 text-right font-semibold text-slate-900">฿${Number(req.totalEstimatedCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-        <td class="p-3 text-center">${statusBadge}</td>
-        <td class="p-3 text-center">
-          <div class="flex items-center justify-center gap-1.5">
-            ${dispenseBtn}
-            <a href="print-slip.html?id=${req.id}" target="_blank" title="พิมพ์ใบเบิกเพื่อให้หัวหน้าเซ็น" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium inline-flex items-center gap-1 transition shadow-xs">
-              <i class="fa-solid fa-print"></i> พิมพ์ใบเบิก
-            </a>
-            <button onclick="viewRequisitionDetail('${req.id}')" title="ดูรายละเอียด" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-700 hover:text-blue-600 transition flex items-center justify-center text-xs">
-              <i class="fa-solid fa-eye"></i>
+        const itemCount = (req.items || []).length;
+
+        let dispenseBtn = '';
+        if (isStorekeeper && req.status === 'pending') {
+          dispenseBtn = `
+            <button onclick="promptDispenseOrder('${req.id}')" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1">
+              <i class="fa-solid fa-check"></i> จ่ายของ
             </button>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-2xl border ${borderClass} p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="font-mono font-bold text-blue-600 text-xs sm:text-sm bg-blue-50 px-2 py-0.5 rounded-lg">${req.id}</span>
+                ${statusBadge}
+              </div>
+
+              <div class="flex items-center gap-2 text-xs text-slate-700 mb-2">
+                <div class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px]">
+                  <i class="fa-solid fa-user"></i>
+                </div>
+                <span class="font-bold text-slate-900">${req.requisitioner}</span>
+                <span class="text-slate-400">•</span>
+                <span class="text-slate-500">${req.departmentName || '-'}</span>
+              </div>
+
+              <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl mb-3">
+                <div class="text-[10px] text-slate-400 font-medium mb-0.5">วัตถุประสงค์:</div>
+                <div class="line-clamp-2">${req.purpose || '-'}</div>
+              </div>
+
+              <div class="flex items-center justify-between text-xs mb-3 px-1 text-slate-600">
+                <span><i class="fa-solid fa-boxes-stacked mr-1 text-slate-400"></i> ${itemCount} รายการ</span>
+                <span class="font-bold text-slate-900">฿${Number(req.totalEstimatedCost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+                <span class="text-[11px] text-slate-400"><i class="fa-regular fa-calendar mr-1"></i> ${req.date || '-'}</span>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center gap-1.5">
+              ${dispenseBtn}
+              <a href="print-slip.html?id=${req.id}" target="_blank" class="flex-1 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-medium flex items-center justify-center gap-1 shadow-xs transition">
+                <i class="fa-solid fa-print"></i> พิมพ์ใบเบิก
+              </a>
+              <button onclick="viewRequisitionDetail('${req.id}')" class="px-3 py-2 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-xl text-xs font-medium transition" title="ดูรายละเอียด">
+                <i class="fa-solid fa-eye mr-1 sm:mr-0"></i><span class="inline sm:hidden">ดูข้อมูล</span>
+              </button>
+            </div>
           </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+        `;
+      }).join('');
+    }
+  }
+
+  const rowCountEl = document.getElementById('reqRowCountText');
+  if (rowCountEl) rowCountEl.textContent = `แสดง ${reqs.length} รายการ จากทั้งหมด ${state.requisitions.length} รายการ`;
 }
 
 function filterRequisitionTable() {
@@ -1158,29 +1474,96 @@ async function updateReqStatus(id, newStatus) {
 function renderStockInsTable(stockInsToRender = null) {
   const stockIns = stockInsToRender || state.stockIns;
   const tbody = document.getElementById('stockInTableBody');
-  if (!tbody) return;
+  const cardsContainer = document.getElementById('stockInCardsContainer');
+  const tableContainer = document.getElementById('stockInTableContainer');
 
-  if (stockIns.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400">ยังไม่มีประวัติการรับเข้าสต็อก</td></tr>`;
-    return;
+  const mode = state.viewModes.stockIns || 'card';
+
+  // Toggle visible container
+  if (mode === 'card') {
+    if (cardsContainer) cardsContainer.classList.remove('hidden');
+    if (tableContainer) tableContainer.classList.add('hidden');
+  } else {
+    if (cardsContainer) cardsContainer.classList.add('hidden');
+    if (tableContainer) tableContainer.classList.remove('hidden');
+  }
+  updateViewModeButtons('StockIn', mode);
+
+  // Render Table View
+  if (tbody) {
+    if (stockIns.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400">ยังไม่มีประวัติการรับเข้าสต็อก</td></tr>`;
+    } else {
+      tbody.innerHTML = stockIns.map(item => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 font-semibold text-blue-600 font-mono">${item.id}</td>
+          <td class="p-3 text-slate-600">${item.date || '-'}</td>
+          <td class="p-3 font-mono text-slate-700">${item.poNumber || '-'}</td>
+          <td class="p-3 font-medium text-slate-900">${item.supplier || '-'}</td>
+          <td class="p-3 text-slate-600">${item.receiverName || '-'}</td>
+          <td class="p-3 text-center font-medium">${(item.items || []).length} รายการ</td>
+          <td class="p-3 text-right font-semibold text-emerald-700">฿${Number(item.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <td class="p-3 text-center">
+            <button onclick="viewStockInDetail('${item.id}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition">
+              ดูรายการ
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
   }
 
-  tbody.innerHTML = stockIns.map(item => `
-    <tr class="hover:bg-slate-50 transition">
-      <td class="p-3 font-semibold text-blue-600 font-mono">${item.id}</td>
-      <td class="p-3 text-slate-600">${item.date || '-'}</td>
-      <td class="p-3 font-mono text-slate-700">${item.poNumber || '-'}</td>
-      <td class="p-3 font-medium text-slate-900">${item.supplier || '-'}</td>
-      <td class="p-3 text-slate-600">${item.receiverName || '-'}</td>
-      <td class="p-3 text-center font-medium">${(item.items || []).length} รายการ</td>
-      <td class="p-3 text-right font-semibold text-emerald-700">฿${Number(item.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-      <td class="p-3 text-center">
-        <button onclick="viewStockInDetail('${item.id}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold transition">
-          ดูรายการ
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  // Render Card View (Responsive Grid: 1 col on mobile, 2 on tablet, 3 on desktop)
+  if (cardsContainer) {
+    if (stockIns.length === 0) {
+      cardsContainer.innerHTML = `
+        <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400">
+          <i class="fa-solid fa-truck-ramp-box text-3xl mb-2 text-slate-300"></i>
+          <p>ยังไม่มีประวัติการรับเข้าสต็อก</p>
+        </div>
+      `;
+    } else {
+      cardsContainer.innerHTML = stockIns.map(item => `
+        <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:shadow-md transition-all flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="font-mono font-bold text-blue-600 text-xs sm:text-sm bg-blue-50 px-2 py-0.5 rounded-lg">${item.id}</span>
+              <span class="text-xs text-slate-500"><i class="fa-regular fa-calendar mr-1"></i> ${item.date || '-'}</span>
+            </div>
+
+            <div class="space-y-1.5 mb-3 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-400">เลขที่ PO:</span>
+                <span class="font-mono font-semibold text-slate-700">${item.poNumber || '-'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">ผู้จำหน่าย:</span>
+                <span class="font-medium text-slate-900 truncate max-w-[180px]">${item.supplier || '-'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-400">ผู้ตรวจรับ:</span>
+                <span class="text-slate-700">${item.receiverName || '-'}</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-xl p-2.5 mb-3 flex justify-between items-center text-xs">
+              <span class="text-slate-500"><i class="fa-solid fa-boxes-stacked mr-1 text-slate-400"></i> ${(item.items || []).length} รายการ</span>
+              <span class="font-bold text-emerald-700 text-sm">฿${Number(item.totalAmount || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+
+          <div class="pt-2.5 border-t border-slate-100">
+            <button onclick="viewStockInDetail('${item.id}')" class="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-list-check"></i> ดูรายการพัสดุที่รับเข้า
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  const rowCountEl = document.getElementById('stockInRowCountText');
+  if (rowCountEl) rowCountEl.textContent = `แสดง ${stockIns.length} รายการ จากทั้งหมด ${state.stockIns.length} รายการ`;
 }
 
 function filterStockInTable() {
@@ -1859,30 +2242,62 @@ function renderSettingsView() {
 
 function renderUsersTable() {
   const tbody = document.getElementById('usersTableBody');
-  if (!tbody) return;
+  const cardsContainer = document.getElementById('usersCardsContainer');
 
-  tbody.innerHTML = (state.users || []).map(u => {
-    let roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">ผู้เบิกประจำแผนก</span>';
-    if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-white">ผู้ดูแลระบบ (Admin)</span>';
-    if (u.role === 'storekeeper') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">จนท.ห้องพัสดุ (Storekeeper)</span>';
+  const users = state.users || [];
 
-    return `
-      <tr class="hover:bg-slate-50 transition">
-        <td class="p-3 font-mono font-bold text-slate-800">${u.username}</td>
-        <td class="p-3 font-medium text-slate-900">${u.fullName}</td>
-        <td class="p-3">${roleBadge}</td>
-        <td class="p-3 text-slate-600">${u.departmentName || '-'}</td>
-        <td class="p-3 text-slate-500 text-xs">${u.phone || '-'}</td>
-        <td class="p-3 text-center">
-          ${u.id === 'usr-admin' ? '<span class="text-slate-400 text-xs">หลัก</span>' : `
-            <button onclick="deleteUser('${u.id}')" title="ลบผู้ใช้" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition inline-flex items-center justify-center text-xs">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          `}
-        </td>
-      </tr>
-    `;
-  }).join('');
+  if (tbody) {
+    tbody.innerHTML = users.map(u => {
+      let roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">ผู้เบิกประจำแผนก</span>';
+      if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-white">ผู้ดูแลระบบ (Admin)</span>';
+      if (u.role === 'storekeeper') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">จนท.ห้องพัสดุ (Storekeeper)</span>';
+
+      return `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 font-mono font-bold text-slate-800">${u.username}</td>
+          <td class="p-3 font-medium text-slate-900">${u.fullName}</td>
+          <td class="p-3">${roleBadge}</td>
+          <td class="p-3 text-slate-600">${u.departmentName || '-'}</td>
+          <td class="p-3 text-slate-500 text-xs">${u.phone || '-'}</td>
+          <td class="p-3 text-center">
+            ${u.id === 'usr-admin' ? '<span class="text-slate-400 text-xs">หลัก</span>' : `
+              <button onclick="deleteUser('${u.id}')" title="ลบผู้ใช้" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition inline-flex items-center justify-center text-xs">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (cardsContainer) {
+    cardsContainer.innerHTML = users.map(u => {
+      let roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">ผู้เบิกประจำแผนก</span>';
+      if (u.role === 'admin') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-white">ผู้ดูแลระบบ (Admin)</span>';
+      if (u.role === 'storekeeper') roleBadge = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-blue-600 text-white">จนท.ห้องพัสดุ (Storekeeper)</span>';
+
+      return `
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-mono font-bold text-slate-900 text-xs">${u.username}</span>
+              ${roleBadge}
+            </div>
+            <div class="font-bold text-slate-800 text-sm truncate">${u.fullName}</div>
+            <div class="text-xs text-slate-500">${u.departmentName ? 'แผนก ' + u.departmentName : 'ไม่มีแผนก'} ${u.phone ? '• โทร ' + u.phone : ''}</div>
+          </div>
+          <div class="shrink-0">
+            ${u.id === 'usr-admin' ? '<span class="text-slate-400 text-xs px-2 py-1 bg-slate-100 rounded-lg">Admin หลัก</span>' : `
+              <button onclick="deleteUser('${u.id}')" title="ลบผู้ใช้" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 transition inline-flex items-center justify-center text-xs">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 }
 
 function openUserModal() {
