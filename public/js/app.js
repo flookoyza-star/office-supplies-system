@@ -1423,8 +1423,9 @@ async function generateReport() {
       title = '2. รายงานการขอเบิก-จ่ายพัสดุ (ตามแผนก/บุคคล)';
       thead.innerHTML = `
         <tr>
-          <th class="p-2.5 w-24">เลขที่ใบเบิก</th>
-          <th class="p-2.5">วันที่</th>
+          <th class="p-2.5 text-center w-12">#</th>
+          <th class="p-2.5 w-28">เลขที่ใบเบิก</th>
+          <th class="p-2.5 w-24">วันที่</th>
           <th class="p-2.5">ผู้ขอเบิก</th>
           <th class="p-2.5">แผนก/ฝ่าย</th>
           <th class="p-2.5">รายการอุปกรณ์ที่เบิก</th>
@@ -1436,43 +1437,48 @@ async function generateReport() {
       let totalReqCost = 0;
       let totalReqItems = 0;
 
-      rowsHtml = (data.requisitions || []).map(r => {
+      rowsHtml = (data.requisitions || []).map((r, idx) => {
         totalReqCost += Number(r.totalEstimatedCost || 0);
-        totalReqItems += (r.items || []).length;
+        const itemCount = (r.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+        totalReqItems += itemCount;
         const itemsSummary = (r.items || []).map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', ');
 
-        let statusText = 'รอเบิก';
+        let statusText = '<span class="text-amber-700 font-semibold">รอหัวหน้าเซ็น/รอจ่าย</span>';
         if (r.status === 'approved') statusText = '<span class="text-emerald-700 font-semibold">จ่ายแล้ว</span>';
         if (r.status === 'rejected') statusText = '<span class="text-rose-600 font-semibold">ปฏิเสธ</span>';
 
         return `
-          <tr class="hover:bg-slate-50">
-            <td class="p-2 font-mono font-bold text-blue-600">${r.id}</td>
-            <td class="p-2 text-slate-600">${r.date || '-'}</td>
-            <td class="p-2 font-medium text-slate-800">${r.requisitioner}</td>
-            <td class="p-2 text-slate-700">${r.departmentName}</td>
-            <td class="p-2 text-xs text-slate-600 max-w-sm truncate" title="${itemsSummary}">${itemsSummary}</td>
-            <td class="p-2 text-center">${statusText}</td>
-            <td class="p-2 text-right font-semibold text-slate-900">฿${Number(r.totalEstimatedCost).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-2.5 text-center text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-mono font-bold text-blue-600">${r.id}</td>
+            <td class="p-2.5 text-slate-600">${r.date || '-'}</td>
+            <td class="p-2.5 font-medium text-slate-800">${r.requisitioner}</td>
+            <td class="p-2.5 text-slate-700">${r.departmentName}</td>
+            <td class="p-2.5 text-xs text-slate-600 max-w-sm truncate" title="${itemsSummary}">${itemsSummary}</td>
+            <td class="p-2.5 text-center">${statusText}</td>
+            <td class="p-2.5 text-right font-semibold text-slate-900">฿${Number(r.totalEstimatedCost).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
           </tr>
         `;
       }).join('');
 
       footHtml = `
         <tr>
-          <td colspan="6" class="p-2.5 text-right font-bold">ยอดรวมมูลค่าการเบิกทั้งสิ้น:</td>
+          <td colspan="5" class="p-2.5 text-right font-bold text-slate-800">รวมทั้งสิ้น:</td>
+          <td class="p-2.5 text-center font-bold text-blue-700">${totalReqItems.toLocaleString()} ชิ้น</td>
+          <td></td>
           <td class="p-2.5 text-right font-bold text-emerald-700 text-base">฿${totalReqCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
         </tr>
       `;
 
-      updateReportKpis('จำนวนใบขอเบิก', (data.requisitions || []).length, 'รวมรายการที่เบิก', totalReqItems.toLocaleString(), 'มูลค่าการเบิกรวม', `฿${totalReqCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+      updateReportKpis('จำนวนใบขอเบิก', (data.requisitions || []).length, 'รวมจำนวนชิ้นที่เบิก', totalReqItems.toLocaleString(), 'มูลค่าการเบิกรวม', `฿${totalReqCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
     } else if (type === 'stockin') {
       title = '3. รายงานการรับเข้าพัสดุอุปกรณ์เข้าคลังสต็อก';
       thead.innerHTML = `
         <tr>
-          <th class="p-2.5 w-24">เลขที่รับ</th>
-          <th class="p-2.5">วันที่รับ</th>
-          <th class="p-2.5">เลขที่ PO</th>
+          <th class="p-2.5 text-center w-12">#</th>
+          <th class="p-2.5 w-28">เลขที่รับ</th>
+          <th class="p-2.5 w-24">วันที่รับ</th>
+          <th class="p-2.5 w-28">เลขที่ PO</th>
           <th class="p-2.5">ผู้จัดจำหน่าย / แหล่งที่มา</th>
           <th class="p-2.5">ผู้ตรวจรับ</th>
           <th class="p-2.5">รายการอุปกรณ์ที่รับเข้า</th>
@@ -1481,31 +1487,36 @@ async function generateReport() {
       `;
 
       let totalInCost = 0;
-      rowsHtml = (data.stockIns || []).map(s => {
+      let totalInUnits = 0;
+      rowsHtml = (data.stockIns || []).map((s, idx) => {
         totalInCost += Number(s.totalAmount || 0);
+        const inUnits = (s.items || []).reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+        totalInUnits += inUnits;
         const itemsSummary = (s.items || []).map(i => `${i.name} (${i.quantity} ${i.unit})`).join(', ');
 
         return `
-          <tr class="hover:bg-slate-50">
-            <td class="p-2 font-mono font-bold text-blue-600">${s.id}</td>
-            <td class="p-2 text-slate-600">${s.date || '-'}</td>
-            <td class="p-2 font-mono text-slate-700">${s.poNumber || '-'}</td>
-            <td class="p-2 font-medium text-slate-800">${s.supplier}</td>
-            <td class="p-2 text-slate-600">${s.receiverName}</td>
-            <td class="p-2 text-xs text-slate-600 max-w-sm truncate" title="${itemsSummary}">${itemsSummary}</td>
-            <td class="p-2 text-right font-semibold text-emerald-700">฿${Number(s.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-2.5 text-center text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-mono font-bold text-blue-600">${s.id}</td>
+            <td class="p-2.5 text-slate-600">${s.date || '-'}</td>
+            <td class="p-2.5 font-mono text-slate-700">${s.poNumber || '-'}</td>
+            <td class="p-2.5 font-medium text-slate-800">${s.supplier}</td>
+            <td class="p-2.5 text-slate-600">${s.receiverName}</td>
+            <td class="p-2.5 text-xs text-slate-600 max-w-sm truncate" title="${itemsSummary}">${itemsSummary}</td>
+            <td class="p-2.5 text-right font-semibold text-emerald-700">฿${Number(s.totalAmount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
           </tr>
         `;
       }).join('');
 
       footHtml = `
         <tr>
-          <td colspan="6" class="p-2.5 text-right font-bold">ยอดรับเข้าสต็อกรวมทั้งสิ้น:</td>
+          <td colspan="6" class="p-2.5 text-right font-bold text-slate-800">รวมทั้งสิ้น:</td>
+          <td class="p-2.5 text-center font-bold text-blue-700">${totalInUnits.toLocaleString()} ชิ้น</td>
           <td class="p-2.5 text-right font-bold text-emerald-700 text-base">฿${totalInCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
         </tr>
       `;
 
-      updateReportKpis('จำนวนครั้งที่รับเข้า', (data.stockIns || []).length, 'ผู้จำหน่ายทั้งหมด', new Set((data.stockIns || []).map(s => s.supplier)).size, 'มูลค่ารับเข้าสต็อกรวม', `฿${totalInCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+      updateReportKpis('จำนวนครั้งที่รับเข้า', (data.stockIns || []).length, 'รวมจำนวนชิ้นที่รับ', totalInUnits.toLocaleString(), 'มูลค่ารับเข้าสต็อกรวม', `฿${totalInCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
     } else if (type === 'dept_expense') {
       title = '4. รายงานสรุปค่าใช้จ่ายและปริมาณการเบิกอุปกรณ์ตามแผนก';
       thead.innerHTML = `
@@ -1525,6 +1536,7 @@ async function generateReport() {
       });
 
       let grandCost = 0;
+      let grandQty = 0;
       (data.requisitions || []).forEach(r => {
         const dId = r.departmentId;
         if (!deptSummary[dId]) deptSummary[dId] = { name: r.departmentName, slipsCount: 0, itemsQty: 0, totalCost: 0 };
@@ -1532,7 +1544,11 @@ async function generateReport() {
         deptSummary[dId].totalCost += (r.totalEstimatedCost || 0);
         grandCost += (r.totalEstimatedCost || 0);
 
-        (r.items || []).forEach(i => { deptSummary[dId].itemsQty += (i.quantity || 0); });
+        (r.items || []).forEach(i => {
+          const q = Number(i.quantity) || 0;
+          deptSummary[dId].itemsQty += q;
+          grandQty += q;
+        });
       });
 
       const deptList = Object.values(deptSummary).sort((a, b) => b.totalCost - a.totalCost);
@@ -1540,26 +1556,28 @@ async function generateReport() {
       rowsHtml = deptList.map((d, idx) => {
         const percent = grandCost > 0 ? ((d.totalCost / grandCost) * 100).toFixed(1) : 0;
         return `
-          <tr class="hover:bg-slate-50">
-            <td class="p-2 text-center text-slate-400">${idx + 1}</td>
-            <td class="p-2 font-medium text-slate-900">${d.name}</td>
-            <td class="p-2 text-center">${d.slipsCount} ใบ</td>
-            <td class="p-2 text-center">${d.itemsQty.toLocaleString()} ชิ้น</td>
-            <td class="p-2 text-right font-semibold text-slate-900">฿${d.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-            <td class="p-2 text-right text-blue-600 font-bold">${percent}%</td>
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-2.5 text-center text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-medium text-slate-900">${d.name}</td>
+            <td class="p-2.5 text-center">${d.slipsCount} ใบ</td>
+            <td class="p-2.5 text-center font-bold text-blue-700">${d.itemsQty.toLocaleString()} ชิ้น</td>
+            <td class="p-2.5 text-right font-semibold text-slate-900">฿${d.totalCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td class="p-2.5 text-right text-blue-600 font-bold">${percent}%</td>
           </tr>
         `;
       }).join('');
 
       footHtml = `
         <tr>
-          <td colspan="4" class="p-2.5 text-right font-bold">รวมค่าใช้จ่ายอุปกรณ์ทั้งหมด:</td>
+          <td colspan="2" class="p-2.5 text-right font-bold text-slate-800">รวมทั้งสิ้น:</td>
+          <td class="p-2.5 text-center font-bold text-slate-800">${(data.requisitions || []).length} ใบ</td>
+          <td class="p-2.5 text-center font-bold text-blue-700">${grandQty.toLocaleString()} ชิ้น</td>
           <td class="p-2.5 text-right font-bold text-emerald-700 text-base">฿${grandCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
           <td class="p-2.5 text-right font-bold text-blue-700">100.0%</td>
         </tr>
       `;
 
-      updateReportKpis('แผนกทั้งหมด', deptList.length, 'ยอดเบิกรวมทั้งหมด', (data.requisitions || []).length + ' ใบ', 'รวมค่าใช้จ่ายทั้งสิ้น', `฿${grandCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+      updateReportKpis('แผนกทั้งหมด', deptList.length, 'รวมจำนวนชิ้นที่เบิก', grandQty.toLocaleString(), 'รวมค่าใช้จ่ายทั้งสิ้น', `฿${grandCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
     } else if (type === 'lowstock') {
       title = '5. รายงานรายการวัสดุที่ต้องจัดซื้อเพิ่ม (ต่ำกว่าเกณฑ์สั่งซื้อ)';
       thead.innerHTML = `
@@ -1572,29 +1590,31 @@ async function generateReport() {
           <th class="p-2.5 text-center">จุดสั่งซื้อขั้นต่ำ</th>
           <th class="p-2.5 text-center">จำนวนที่ควรสั่งซื้อเพิ่ม</th>
           <th class="p-2.5 text-right">ราคาต่อหน่วย</th>
-          <th class="p-2.5 text-right">งบประมาณสั่งซื้อโดยประมาณ</th>
+          <th class="p-2.5 text-right">งบประมาณสั่งซื้อ (บาท)</th>
         </tr>
       `;
 
       const lowItems = (data.inventory || []).filter(i => i.isLowStock);
       let totalReorderBudget = 0;
+      let totalSuggestedQty = 0;
 
       rowsHtml = lowItems.map((item, idx) => {
         const suggestedQty = Math.max(item.minStock, (item.minStock * 2) - item.currentStock);
         const estCost = suggestedQty * (item.unitPrice || 0);
         totalReorderBudget += estCost;
+        totalSuggestedQty += suggestedQty;
 
         return `
-          <tr class="hover:bg-slate-50">
-            <td class="p-2 text-center text-slate-400">${idx + 1}</td>
-            <td class="p-2 font-mono text-xs font-semibold">${item.code}</td>
-            <td class="p-2 font-medium text-slate-900">${item.name}</td>
-            <td class="p-2 text-slate-600">${item.categoryName}</td>
-            <td class="p-2 text-center font-bold ${item.currentStock <= 0 ? 'text-rose-600' : 'text-amber-600'}">${item.currentStock} ${item.unit}</td>
-            <td class="p-2 text-center text-slate-500">${item.minStock} ${item.unit}</td>
-            <td class="p-2 text-center font-bold text-blue-700 bg-blue-50/50">${suggestedQty} ${item.unit}</td>
-            <td class="p-2 text-right">฿${Number(item.unitPrice).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
-            <td class="p-2 text-right font-semibold text-slate-900">฿${estCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-2.5 text-center text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-mono text-xs font-semibold">${item.code}</td>
+            <td class="p-2.5 font-medium text-slate-900">${item.name}</td>
+            <td class="p-2.5 text-slate-600">${item.categoryName}</td>
+            <td class="p-2.5 text-center font-bold ${item.currentStock <= 0 ? 'text-rose-600' : 'text-amber-600'}">${item.currentStock} ${item.unit}</td>
+            <td class="p-2.5 text-center text-slate-500">${item.minStock} ${item.unit}</td>
+            <td class="p-2.5 text-center font-bold text-blue-700 bg-blue-50/50">${suggestedQty} ${item.unit}</td>
+            <td class="p-2.5 text-right">฿${Number(item.unitPrice).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+            <td class="p-2.5 text-right font-semibold text-slate-900">฿${estCost.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
           </tr>
         `;
       }).join('');
@@ -1605,12 +1625,15 @@ async function generateReport() {
 
       footHtml = `
         <tr>
-          <td colspan="6" class="p-2.5 text-right font-bold">งบประมาณแนะนำในการจัดซื้อรอบนี้:</td>
-          <td colspan="3" class="p-2.5 text-right font-bold text-blue-700 text-base">฿${totalReorderBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
+          <td colspan="4" class="p-2.5 text-right font-bold text-slate-800">รวมทั้งสิ้น:</td>
+          <td colspan="2"></td>
+          <td class="p-2.5 text-center font-bold text-blue-700">${totalSuggestedQty.toLocaleString()} หน่วย</td>
+          <td></td>
+          <td class="p-2.5 text-right font-bold text-emerald-700 text-base">฿${totalReorderBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td>
         </tr>
       `;
 
-      updateReportKpis('รายการที่ต้องสั่งซื้อ', lowItems.length, 'หมดสต็อกทันที', lowItems.filter(i => i.currentStock <= 0).length, 'งบสั่งซื้อโดยประมาณ', `฿${totalReorderBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
+      updateReportKpis('รายการที่ต้องสั่งซื้อ', lowItems.length, 'รวมจำนวนที่ต้องสั่ง (หน่วย)', totalSuggestedQty.toLocaleString(), 'งบสั่งซื้อโดยประมาณ', `฿${totalReorderBudget.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`);
     }
 
     document.getElementById('reportTitleHeader').textContent = title;
