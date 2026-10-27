@@ -149,3 +149,5 @@ office-supplies-system/
         └── app.js             # Logic การทำงาน, Chart.js, SheetJS Excel Export
 ```
 
+#   o f f i c e - s u p p l i e s - s y s t e m  
+ 
